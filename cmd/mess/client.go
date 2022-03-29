@@ -9,7 +9,8 @@ import (
 )
 
 type server struct {
-	l net.Listener
+	db *db
+	l  net.Listener
 }
 
 func (s *server) start(port int) error {
@@ -34,5 +35,8 @@ func (s *server) serve(ctx context.Context) {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
-func (s *server) task() {
+func (s *server) task(key int64) {
+	r := db.Requests[key]
+	if r == nil {
+	}
 }

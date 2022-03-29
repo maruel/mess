@@ -3,19 +3,28 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 )
 
 func mainImpl() error {
+	port := flag.Int("port", 80, "HTTP port")
+	flag.Parse()
+
 	d := db{}
-	raw, err := os.ReadFile("db.json")
-	if err != nil {
+	if err := d.init(); err != nil {
 		return err
 	}
-	if err := d.load(bytes.NewReader(raw)); err != nil {
+	raw, err := os.ReadFile("db.json")
+	if os.IsNotExist(err) {
+	} else if err != nil {
 		return err
+	} else {
+		if err := d.load(bytes.NewReader(raw)); err != nil {
+			return err
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -27,22 +36,25 @@ func mainImpl() error {
 		cancel()
 	}()
 
-	port := 51234
-	s := server{}
-	if err := s.start(port); err != nil {
+	s := server{db: &d}
+	if err := s.start(*port); err != nil {
 		return err
 	}
 
 	go s.serve(ctx)
 	<-ctx.Done()
-	//s.Shutdown(context.Background())
+	fmt.Printf("Terminating...\n")
 
 	b := bytes.Buffer{}
 	if err := d.save(&b); err != nil {
 		// This is a big deal.
-		return err
+		return fmt.Errorf("data loss! %w", err)
 	}
-	return os.WriteFile("db.json", b.Bytes(), 0o644)
+	if err := os.WriteFile("db.json", b.Bytes(), 0o644); err != nil {
+		// This is a big deal.
+		return fmt.Errorf("data loss! %w", err)
+	}
+	return nil
 }
 
 func main() {

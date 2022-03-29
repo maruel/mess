@@ -379,6 +379,10 @@ var botFiles = []string{
 	"utils/zip_package.py",
 }
 
+// getBotZIP generates a swarming_bot.zip without the config.json file.
+//
+// It is slightly faster to precompress files here then edit the zip on startup
+// than compressing all the Swarming bot python files on startup.
 func getBotZIP() ([]byte, error) {
 	b := bytes.Buffer{}
 	w := zip.NewWriter(&b)

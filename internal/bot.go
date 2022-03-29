@@ -7,6 +7,16 @@ import (
 	"bytes"
 )
 
+// GetBotZIP return the swarming_bot.zip's hashed content.
+//
+// TODO(maruel): Only need to calculate once on startup.
+func GetBotVersion() string {
+	return "1234567812345678123456781234567812345678123456781234567812345678"
+}
+
+// GetBotZIP return the swarming_bot.zip bytes.
+//
+// TODO(maruel): Only need to calculate once on startup.
 func GetBotZIP(config []byte) []byte {
 	// Create a new zip with config.json injected in.
 	r, err := zip.NewReader(bytes.NewReader(botZipRaw[:]), int64(len(botZipRaw)))

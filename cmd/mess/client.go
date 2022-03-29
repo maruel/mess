@@ -9,8 +9,8 @@ import (
 )
 
 type server struct {
-	db *db
-	l  net.Listener
+	tables *tables
+	l      net.Listener
 }
 
 func (s *server) start(port int) error {
@@ -33,10 +33,14 @@ func (s *server) serve(ctx context.Context) {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Mess (will) support 3 APIs:
+	// - RBE's RPC
+	// - Swarming's client Cloud Endpoint
+	// - Swarming's Bot API
 }
 
 func (s *server) task(key int64) {
-	r := db.Requests[key]
+	r := s.tables.Requests[key]
 	if r == nil {
 	}
 }

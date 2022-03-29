@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -14,17 +13,8 @@ func mainImpl() error {
 	flag.Parse()
 
 	d := db{}
-	if err := d.init(); err != nil {
+	if err := d.load(); err != nil {
 		return err
-	}
-	raw, err := os.ReadFile("db.json")
-	if os.IsNotExist(err) {
-	} else if err != nil {
-		return err
-	} else {
-		if err := d.load(bytes.NewReader(raw)); err != nil {
-			return err
-		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -36,7 +26,7 @@ func mainImpl() error {
 		cancel()
 	}()
 
-	s := server{db: &d}
+	s := server{tables: &d.tables}
 	if err := s.start(*port); err != nil {
 		return err
 	}
@@ -45,12 +35,7 @@ func mainImpl() error {
 	<-ctx.Done()
 	fmt.Printf("Terminating...\n")
 
-	b := bytes.Buffer{}
-	if err := d.save(&b); err != nil {
-		// This is a big deal.
-		return fmt.Errorf("data loss! %w", err)
-	}
-	if err := os.WriteFile("db.json", b.Bytes(), 0o644); err != nil {
+	if err := d.save(); err != nil {
 		// This is a big deal.
 		return fmt.Errorf("data loss! %w", err)
 	}

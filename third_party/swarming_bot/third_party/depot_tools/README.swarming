@@ -1,0 +1,15 @@
+Name: depot_tools
+Short Name: depot_tools
+URL: https://chromium.googlesource.com/chromium/tools/depot_tools.git
+Revision: 20815505e6008a33adec35bad46e589d4a8386cb
+License: BSD
+
+Description:
+Tools for Chromium developers.
+
+Local Modifications:
+- Kept fix_encoding.py, git_common.py, git_number.py, setup_color.py,
+  subprocess2.py, subcommand.py and LICENSE.
+- testing_support/auto_stub.py doesn't exist anymore, therefore no 
+  more updates to auto_stub.py.
+- Modified setup_color.py to remove 'from third_party'.

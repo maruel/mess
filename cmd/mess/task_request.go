@@ -1,6 +1,12 @@
 package main
 
-import "time"
+import (
+	"encoding/hex"
+	"errors"
+	"time"
+
+	rbe "github.com/maruel/mess/third_party/build/bazel/remote/execution/v2"
+)
 
 const (
 	maxHardTimeout = 7*24*time.Hour + 10*time.Second
@@ -9,9 +15,25 @@ const (
 	evictionCutOff = 550 * 24 * time.Hour
 )
 
+// Digest is a more memory efficient version of rbe.Digest.
 type Digest struct {
 	Size int64
 	Hash [32]byte
+}
+
+func (d *Digest) toProto(p *rbe.Digest) {
+	p.SizeBytes = d.Size
+	p.Hash = hex.EncodeToString(d.Hash[:])
+}
+
+func (d *Digest) fromProto(p *rbe.Digest) error {
+	d.Size = p.SizeBytes
+	if len(p.Hash) != 64 {
+		return errors.New("invalid hash")
+	}
+	// TODO: Manually decode for performance.
+	_, err := hex.Decode(d.Hash[:], []byte(p.Hash))
+	return err
 }
 
 type CipdPackage struct {

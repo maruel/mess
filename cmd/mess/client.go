@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/maruel/mess/internal"
 )
 
 type server struct {
@@ -43,4 +45,8 @@ func (s *server) task(key int64) {
 	r := s.tables.Requests[key]
 	if r == nil {
 	}
+}
+
+func (s *server) botCode(key int64) {
+	_ = internal.GetBotZIP(nil)
 }

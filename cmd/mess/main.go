@@ -9,9 +9,20 @@ import (
 )
 
 func mainImpl() error {
-	port := flag.Int("port", 80, "HTTP port")
+	port := flag.Int("port", 7899, "HTTP port")
+	cid := flag.String("cid", "", "Google OAuth2 Client ID")
 	flag.Parse()
 
+	if *cid == "" {
+		fmt.Printf("Warning: you should pass -cid\n")
+		fmt.Printf("\n")
+		fmt.Printf("- Visit https://console.cloud.google.com/apis/credentials\n")
+		fmt.Printf("- Expose this server to the internet, preferably fronted with Caddy.\n")
+		fmt.Printf("- Create ID client Oauth 2.0 for a Web Application.\n")
+		fmt.Printf("- Javascript Origin: https://<domain.com\n")
+		fmt.Printf("- Redirection: https://<domain.com/oauth2callback\n")
+		fmt.Printf("\n")
+	}
 	d := db{}
 	if err := d.load(); err != nil {
 		return err
@@ -26,7 +37,7 @@ func mainImpl() error {
 		cancel()
 	}()
 
-	s := server{tables: &d.tables}
+	s := server{tables: &d.tables, cid: *cid}
 	if err := s.start(*port); err != nil {
 		return err
 	}

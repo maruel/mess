@@ -56,6 +56,8 @@ var botFiles = []string{
 	"client/local_caching.py",
 	"client/run_isolated.py",
 	"config/__init__.py",
+	// TODO(maruel): Temporary:
+	"config/bot_config.py",
 	"libs/__init__.py",
 	"libs/luci_context/__init__.py",
 	"libs/luci_context/luci_context.py",

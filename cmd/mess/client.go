@@ -18,6 +18,7 @@ var started = time.Now()
 
 type server struct {
 	tables *tables
+	cid    string
 	l      net.Listener
 }
 
@@ -32,34 +33,19 @@ func (s *server) start(port int) error {
 
 var uiFS = http.FileServer(http.FS(dist.FS))
 
-func serveUI(page string, w http.ResponseWriter, r *http.Request) {
-	// strings.ReplaceAll(raw, "{{client_id}}", ui_client_id)
-	// http.ServeContent()
-	r.URL.Path = "/public_" + page + "_index.html"
-	uiFS.ServeHTTP(w, r)
-}
-
-func rootUIPages(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		serveUI("swarming", w, r)
-	} else {
-		serveUI(r.URL.Path[1:], w, r)
-	}
-}
-
 func (s *server) serve(ctx context.Context) {
 	mux := http.ServeMux{}
 	// APIs.
 	mux.Handle("/swarming/api/v1/bot/", http.StripPrefix("/swarming/api/v1/bot", http.HandlerFunc(s.apiBot)))
-	mux.Handle("/_ah/api/swarming/v1/", http.StripPrefix("/_ah/api/swarming/v1", http.HandlerFunc(s.apiCloudEndpoint)))
-	mux.HandleFunc("/bot_code", rootUIPages)
+	mux.Handle("/_ah/api/swarming/v1/", http.StripPrefix("/_ah/api/swarming/v1", http.HandlerFunc(s.apiEndpoint)))
+	mux.HandleFunc("/bot_code", s.apiBot)
 	// UI.
 	mux.Handle("/newres/", http.StripPrefix("/newres", uiFS))
-	mux.HandleFunc("/bot", rootUIPages)
-	mux.HandleFunc("/botlist", rootUIPages)
-	mux.HandleFunc("/task", rootUIPages)
-	mux.HandleFunc("/tasklist", rootUIPages)
-	mux.HandleFunc("/", rootUIPages)
+	mux.HandleFunc("/bot", s.rootUIPages)
+	mux.HandleFunc("/botlist", s.rootUIPages)
+	mux.HandleFunc("/task", s.rootUIPages)
+	mux.HandleFunc("/tasklist", s.rootUIPages)
+	mux.HandleFunc("/", s.rootUIPages)
 	h := &http.Server{
 		BaseContext:  func(net.Listener) context.Context { return ctx },
 		Handler:      &loghttp.Handler{Handler: &mux},
@@ -69,38 +55,98 @@ func (s *server) serve(ctx context.Context) {
 	go h.Serve(s.l)
 }
 
+func (s *server) serveUI(page string, w http.ResponseWriter, r *http.Request) {
+	// TODO(maruel): Do once on startup.
+	raw, _ := dist.FS.ReadFile("public_" + page + "_index.html")
+	raw = bytes.ReplaceAll(raw, []byte("{{client_id}}"), []byte(s.cid))
+	w.Header().Set("Content-Type", "text/html")
+	http.ServeContent(w, r, "", started, bytes.NewReader(raw))
+	//r.URL.Path = "/public_" + page + "_index.html"
+	//uiFS.ServeHTTP(w, r)
+}
+
+func (s *server) rootUIPages(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		s.serveUI("swarming", w, r)
+	} else {
+		s.serveUI(r.URL.Path[1:], w, r)
+	}
+}
+
 func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
+	// Non-API URLs.
+	h := w.Header()
 	if r.URL.Path == "/server_ping" {
+		h.Set("Content-Type", "text/plain")
 		w.Write([]byte("Server Up"))
 		return
 	}
 	if r.URL.Path == "/bot_code" {
-		version := internal.GetBotVersion()
+		version := internal.GetBotVersion(getHost(r))
 		http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/bot_code") {
-		version := internal.GetBotVersion()
+		version := internal.GetBotVersion(getHost(r))
 		if r.URL.Path[len("/bot_code/"):] != version {
 			// Log a warning.
 			http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
 			return
 		}
-		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP([]byte("{}"))))
+		// TODO(maruel): Doesn't work??
+		h.Set("Content-Disposition", "attachment; filename=swarming_bot.zip")
+		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(getHost(r))))
 		return
 	}
-	// /handshake
-	// /poll
-	// /event
-	// /oauth_token
-	// /id_token
-	// /task_update
-	// /task_error
-	w.Write([]byte("TODO 1"))
+
+	// API URLs.
+	h.Set("Content-Type", "application/json")
+	if r.URL.Path == "/handshake" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/poll" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/event" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/oauth_token" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/id_token" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/task_update" {
+		w.Write([]byte("{}"))
+		return
+	}
+	if r.URL.Path == "/task_error" {
+		w.Write([]byte("{}"))
+		return
+	}
+	w.WriteHeader(404)
+	w.Write([]byte("{}"))
 }
 
-func (s *server) apiCloudEndpoint(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("TODO 2"))
+func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
+	// /server
+	//   details
+	//   token
+	//   permission
+	// /task
+	// /tasks
+	// /queues
+	// /bot
+	// /bots
+	// /config
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	w.Write([]byte("{}"))
 }
 
 func (s *server) task(key int64) {
@@ -109,6 +155,9 @@ func (s *server) task(key int64) {
 	}
 }
 
-func (s *server) botCode(key int64) {
-	_ = internal.GetBotZIP(nil)
+func getHost(r *http.Request) string {
+	if r.URL.Host != "" {
+		return r.URL.Host
+	}
+	return r.Header.Get("X-Forwarded-Host")
 }

@@ -3,18 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/maruel/mess/internal"
 	"github.com/maruel/mess/third_party/ui2/dist"
 	"github.com/maruel/serve-dir/loghttp"
 )
-
-var started = time.Now()
 
 type server struct {
 	tables *tables
@@ -35,10 +33,14 @@ var uiFS = http.FileServer(http.FS(dist.FS))
 
 func (s *server) serve(ctx context.Context) {
 	mux := http.ServeMux{}
+
 	// APIs.
+	// See webserver_bot.go
 	mux.Handle("/swarming/api/v1/bot/", http.StripPrefix("/swarming/api/v1/bot", http.HandlerFunc(s.apiBot)))
+	// See webserver_client.go
 	mux.Handle("/_ah/api/swarming/v1/", http.StripPrefix("/_ah/api/swarming/v1", http.HandlerFunc(s.apiEndpoint)))
 	mux.HandleFunc("/bot_code", s.apiBot)
+
 	// UI.
 	mux.Handle("/newres/", http.StripPrefix("/newres", uiFS))
 	mux.HandleFunc("/bot", s.rootUIPages)
@@ -73,86 +75,35 @@ func (s *server) rootUIPages(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
-	// Non-API URLs.
-	h := w.Header()
-	if r.URL.Path == "/server_ping" {
-		h.Set("Content-Type", "text/plain")
-		w.Write([]byte("Server Up"))
-		return
-	}
-	if r.URL.Path == "/bot_code" {
-		version := internal.GetBotVersion(getHost(r))
-		http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/bot_code") {
-		version := internal.GetBotVersion(getHost(r))
-		if r.URL.Path[len("/bot_code/"):] != version {
-			// Log a warning.
-			http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
-			return
-		}
-		// TODO(maruel): Doesn't work??
-		h.Set("Content-Disposition", "attachment; filename=swarming_bot.zip")
-		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(getHost(r))))
-		return
-	}
+// API helpers.
 
-	// API URLs.
-	h.Set("Content-Type", "application/json")
-	if r.URL.Path == "/handshake" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/poll" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/event" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/oauth_token" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/id_token" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/task_update" {
-		w.Write([]byte("{}"))
-		return
-	}
-	if r.URL.Path == "/task_error" {
-		w.Write([]byte("{}"))
-		return
-	}
-	w.WriteHeader(404)
-	w.Write([]byte("{}"))
+var errUnknownAPI = errors.New("unknown API")
+
+type apiFunc func() interface{}
+
+type errorStatus struct {
+	status int
+	err    error
 }
 
-func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
-	// /server
-	//   details
-	//   token
-	//   permission
-	// /task
-	// /tasks
-	// /queues
-	// /bot
-	// /bots
-	// /config
+// sendJSONResponse sends a JSON response, handling errors.
+func sendJSONResponse(w http.ResponseWriter, res interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	w.Write([]byte("{}"))
-}
-
-func (s *server) task(key int64) {
-	r := s.tables.Requests[key]
-	if r == nil {
+	if err, ok := res.(error); ok {
+		w.WriteHeader(500)
+		res = map[string]string{"error": err.Error()}
+	} else if err, ok := res.(errorStatus); ok {
+		w.WriteHeader(err.status)
+		s := ""
+		if err.err == nil {
+			s = http.StatusText(http.StatusMethodNotAllowed)
+		} else {
+			s = err.err.Error()
+		}
+		res = map[string]string{"error": s}
 	}
+	raw, _ := json.Marshal(res)
+	w.Write(raw)
 }
 
 func getHost(r *http.Request) string {
@@ -161,3 +112,5 @@ func getHost(r *http.Request) string {
 	}
 	return r.Header.Get("X-Forwarded-Host")
 }
+
+const serverVersion = "v0.0.1"

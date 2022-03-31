@@ -14,11 +14,15 @@ import (
 )
 
 type tables struct {
-	// Immutable after creation.
-	mu       sync.Mutex
-	Requests map[int64]*TaskRequest
+	// Single thread the whole thing. It's going to be a problem eventually.
+	mu sync.Mutex
 
-	Results map[int64]*TaskResult
+	// Immutable after creation.
+	TasksRequest map[int64]*TaskRequest
+
+	TasksResult map[int64]*TaskResult
+
+	Bots map[string]*Bot
 }
 
 func (t *tables) init() error {
@@ -29,8 +33,9 @@ func (t *tables) init() error {
 	} else if err := os.Mkdir("output", 0755); err != nil {
 		return err
 	}
-	t.Requests = map[int64]*TaskRequest{}
-	t.Results = map[int64]*TaskResult{}
+	t.TasksRequest = map[int64]*TaskRequest{}
+	t.TasksResult = map[int64]*TaskResult{}
+	t.Bots = map[string]*Bot{}
 	return nil
 }
 
@@ -61,7 +66,7 @@ func (d *db) load() error {
 	//
 	// Use zstd since we can about shutdown / startup performance. We may want to
 	// use a more effective encoding that json.
-	src, err := os.ReadFile("db.json.zstd")
+	src, err := os.ReadFile("db.json.zst")
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -82,8 +87,8 @@ func (d *db) load() error {
 func (d *db) save() error {
 	// It's probably faster to buffer all in memory and write as one shot. It
 	// will likely use more memory and could be problematic over heavy memory
-	// usage. So stream for now to reduce risks.
-	f, err := os.OpenFile("db.json.zstd", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// usage. Stream for now to reduce risks.
+	f, err := os.OpenFile("db.json.new.zst", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -97,6 +102,10 @@ func (d *db) save() error {
 	if err2 := f.Close(); err == nil {
 		err = err2
 	}
+	if err == nil {
+		// Only overwrite if saving worked.
+		err = os.Rename("db.json.new.zst", "db.json.zst")
+	}
 	return err
 }
 
@@ -104,9 +113,11 @@ func (d *db) loadFrom(r io.Reader) error {
 	j := json.NewDecoder(r)
 	j.DisallowUnknownFields()
 	j.UseNumber()
-	if err := j.Decode(d); err != nil {
+	d.tables.mu.Lock()
+	if err := j.Decode(&d.tables); err != nil {
 		return err
 	}
+	d.tables.mu.Unlock()
 	// TODO(maruel): Validate.
 	return nil
 }
@@ -114,5 +125,8 @@ func (d *db) loadFrom(r io.Reader) error {
 func (d *db) saveTo(w io.Writer) error {
 	j := json.NewEncoder(w)
 	j.SetEscapeHTML(false)
-	return j.Encode(d)
+	d.tables.mu.Lock()
+	err := j.Encode(&d.tables)
+	d.tables.mu.Unlock()
+	return err
 }

@@ -2,9 +2,9 @@ package main
 
 import "time"
 
-type StringPairs struct {
-	Key    string
-	Values []string
+type StringListPair struct {
+	Key    string   `json:"key"`
+	Values []string `json:"value"`
 }
 
 type TaskState int64
@@ -35,7 +35,7 @@ type TaskResult struct {
 	Key            int64
 	BotID          string
 	BotVersion     string
-	BotDimension   []StringPairs
+	BotDimension   []StringListPair
 	BotIdleSince   time.Duration
 	ServerVersions []string
 	TaskSlice      int64
@@ -47,7 +47,7 @@ type TaskResult struct {
 	State      TaskState
 	Children   []int64
 	Output     Digest
-	CipdPins   []CipdPackage
+	CIPDPins   []CIPDPackage
 	ResultDB   ResultDB
 
 	Duration  time.Duration

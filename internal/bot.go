@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -40,48 +41,58 @@ func GetBotZIP(host string) []byte {
 		return b
 	}
 
+	cfg, err := json.Marshal(config{Server: "https://" + host})
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a new zip with config/config.json injected in.
 	h := sha256.New()
-	// Create a new zip with config.json injected in.
 	r, err := zip.NewReader(bytes.NewReader(botZipRaw[:]), int64(len(botZipRaw)))
 	if err != nil {
 		panic(err)
 	}
 	buf := bytes.Buffer{}
 	w := zip.NewWriter(&buf)
-	for _, f := range r.File {
-		c, err := f.Open()
-		if err != nil {
-			panic(err)
-		}
-		raw, err := ioutil.ReadAll(c)
-		if err != nil {
-			panic(err)
-		}
-		c.Close()
-		hashFile(h, f.Name, raw)
-		if err := w.Copy(f); err != nil {
-			panic(err)
-		}
-	}
-
+	names := make([]string, 1, len(r.File)+1)
+	names[0] = "config/config.json"
 	f, err := w.Create("config/config.json")
 	if err != nil {
 		panic(err)
 	}
-	raw, err := json.Marshal(config{Server: "https://" + host})
-	if err != nil {
+	if _, err = f.Write(cfg); err != nil {
 		panic(err)
 	}
-	if _, err = f.Write(raw); err != nil {
-		panic(err)
+	for _, f := range r.File {
+		names = append(names, f.Name)
+		if err := w.Copy(f); err != nil {
+			panic(err)
+		}
 	}
-	hashFile(h, "config/config.json", raw)
+	// TODO(maruel): Inject config/bot_config.py.
 	if err := w.Close(); err != nil {
 		panic(err)
 	}
 
-	// TODO(maruel): bot_config.py
+	sort.Strings(names)
+	for _, n := range names {
+		if n == "config/config.json" {
+			hashFile(h, "config/config.json", cfg)
+		} else {
+			c, err := r.Open(n)
+			if err != nil {
+				panic(err)
+			}
+			raw, err := ioutil.ReadAll(c)
+			if err != nil {
+				panic(err)
+			}
+			c.Close()
+			hashFile(h, n, raw)
+		}
+	}
 
+	// Zip content and the content's hash.
 	b = buf.Bytes()
 	v := hex.EncodeToString(h.Sum(nil))
 

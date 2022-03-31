@@ -36,7 +36,7 @@ func (d *Digest) fromProto(p *rbe.Digest) error {
 	return err
 }
 
-type CipdPackage struct {
+type CIPDPackage struct {
 	PkgName string
 	Version string
 	Path    string
@@ -61,8 +61,8 @@ type Containment struct {
 }
 
 type StringPair struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type TaskProperties struct {
@@ -71,8 +71,8 @@ type TaskProperties struct {
 	RelativeWD   string
 	CASHost      string
 	Input        Digest
-	CipdHost     string
-	CipdPackages []CipdPackage
+	CIPDHost     string
+	CIPDPackages []CIPDPackage
 	Dimensions   []StringPair
 	Env          []StringPair
 	EnvPrefixes  []StringPair

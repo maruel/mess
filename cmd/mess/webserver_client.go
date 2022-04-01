@@ -14,7 +14,7 @@ func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/server/details" {
 		sendJSONResponse(w, serverDetails{
 			ServerVersion: serverVersion,
-			BotVersion:    internal.GetBotVersion(getHost(r)),
+			BotVersion:    internal.GetBotVersion(r),
 		})
 		return
 	}

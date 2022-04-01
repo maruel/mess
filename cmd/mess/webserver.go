@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/maruel/mess/third_party/ui2/dist"
-	"github.com/maruel/serve-dir/loghttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type server struct {
@@ -31,6 +33,110 @@ func (s *server) start(port int) error {
 
 var uiFS = http.FileServer(http.FS(dist.FS))
 
+// countingWriter wraps a http.ResponseWriter.
+type countingWriter struct {
+	http.ResponseWriter
+	status int
+	length int
+}
+
+func (c *countingWriter) WriteHeader(code int) {
+	if c.status == -1 {
+		c.ResponseWriter.WriteHeader(code)
+		c.status = code
+	}
+}
+
+func (c *countingWriter) Write(buf []byte) (int, error) {
+	if c.status == -1 {
+		c.status = 200
+	}
+	n, err := c.ResponseWriter.Write(buf)
+	c.length += n
+	return n, err
+}
+
+func (c *countingWriter) Unwrap() http.ResponseWriter {
+	return c.ResponseWriter
+}
+
+func (c *countingWriter) CloseNotify() <-chan bool {
+	return c.ResponseWriter.(http.CloseNotifier).CloseNotify()
+}
+
+func (c *countingWriter) Flush() {
+	c.ResponseWriter.(http.Flusher).Flush()
+}
+
+/*
+// TODO(maruel): Not all writers support Hijacker. We do not use websocket
+// for now so it should not be a problem.
+func (c *countingWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	// When this occurs, the write length is lost.
+	return c.ResponseWriter.(http.Hijacker).Hijack()
+}
+*/
+
+var reqID uint64
+
+// wrapLog wraps logging with zerolog.
+//
+// Reduce function calls by embedding a lot of the features of zerolog/hlog
+// inline.
+func wrapLog(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		cw := countingWriter{ResponseWriter: w, status: -1}
+		// Create a copy of the logger (including internal context slice)
+		// to prevent data race when using UpdateContext.
+		l := log.With().Logger()
+		r = r.WithContext(l.WithContext(r.Context()))
+		p := r.URL.Path
+		m := r.Method
+		ip := r.RemoteAddr
+		ref := r.Header.Get("Referer")
+		ua := r.Header.Get("User-Agent")
+		if bot := r.Header.Get("X-Luci-Swarming-Bot-ID"); bot != "" {
+			l.UpdateContext(func(c zerolog.Context) zerolog.Context {
+				return c.Str("bot", bot)
+			})
+		}
+		// Instead of UUID, use a monotonically increasing request id. Use
+		// something smarter once needed.
+		rid := atomic.AddUint64(&reqID, 1)
+		l.UpdateContext(func(c zerolog.Context) zerolog.Context {
+			return c.Uint64("rid", rid)
+		})
+		defer func() {
+			var line *zerolog.Event
+			msg := ""
+			if v := recover(); v != nil {
+				msg = "panic"
+				if err, ok := v.(error); ok {
+					line = l.Error().Err(err)
+				} else {
+					line = l.Error().Str("recovered", fmt.Sprintf("%v", v))
+				}
+			} else {
+				line = l.Info()
+			}
+			line = line.Int("s", cw.status).Int("l", cw.length).
+				Dur("ms", time.Since(start).Round(time.Millisecond/10)).
+				Str("p", p).
+				Str("m", m).
+				Str("ip", ip)
+			if ua != "" {
+				line = line.Str("ua", ua)
+			}
+			if ref != "" {
+				line = line.Str("ref", ref)
+			}
+			line.Msg(msg)
+		}()
+		h.ServeHTTP(&cw, r)
+	})
+}
+
 func (s *server) serve(ctx context.Context) {
 	mux := http.ServeMux{}
 
@@ -48,21 +154,26 @@ func (s *server) serve(ctx context.Context) {
 	mux.HandleFunc("/task", s.rootUIPages)
 	mux.HandleFunc("/tasklist", s.rootUIPages)
 	mux.HandleFunc("/", s.rootUIPages)
-	h := &http.Server{
-		BaseContext:  func(net.Listener) context.Context { return ctx },
-		Handler:      &loghttp.Handler{Handler: &mux},
+
+	w := &http.Server{
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
+		//Handler:      &loghttp.Handler{Handler: &mux},
+		Handler:      wrapLog(&mux),
 		ReadTimeout:  10. * time.Second,
 		WriteTimeout: time.Minute,
 	}
-	go h.Serve(s.l)
+	go w.Serve(s.l)
 }
 
 func (s *server) serveUI(page string, w http.ResponseWriter, r *http.Request) {
-	// TODO(maruel): Do once on startup.
+	// TODO(maruel): Do once on startup. No need to do it repeatedly.
 	raw, _ := dist.FS.ReadFile("public_" + page + "_index.html")
 	raw = bytes.ReplaceAll(raw, []byte("{{client_id}}"), []byte(s.cid))
 	w.Header().Set("Content-Type", "text/html")
 	http.ServeContent(w, r, "", started, bytes.NewReader(raw))
+	// Simple version not replacing content:
 	//r.URL.Path = "/public_" + page + "_index.html"
 	//uiFS.ServeHTTP(w, r)
 }
@@ -104,13 +215,6 @@ func sendJSONResponse(w http.ResponseWriter, res interface{}) {
 	}
 	raw, _ := json.Marshal(res)
 	w.Write(raw)
-}
-
-func getHost(r *http.Request) string {
-	if r.URL.Host != "" {
-		return r.URL.Host
-	}
-	return r.Header.Get("X-Forwarded-Host")
 }
 
 const serverVersion = "v0.0.1"

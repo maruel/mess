@@ -22,12 +22,12 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/bot_code" {
-		version := internal.GetBotVersion(getHost(r))
+		version := internal.GetBotVersion(r)
 		http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/bot_code") {
-		version := internal.GetBotVersion(getHost(r))
+		version := internal.GetBotVersion(r)
 		if r.URL.Path[len("/bot_code/"):] != version {
 			// TODO(maruel): Log a warning.
 			http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
@@ -40,17 +40,13 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		h.Set("Cache-Control", "public, max-age=3600")
 		h.Set("Content-Type", "application/octet-stream")
 		h.Set("Content-Disposition", "attachment; filename=\"swarming_bot.zip\"")
-		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(getHost(r))))
+		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(r)))
 		return
 	}
 
-	// TODO(maruel): Cleaner code.
-
-	// TODO(maruel): Process input argument.
 	id := r.Header.Get("X-Luci-Swarming-Bot-ID")
 	now := time.Now()
-	// Headers:
-	// "Cookie": "GOOGAPPUID=%d"
+	// canary, _ := r.Cookie("GOOGAPPUID")
 
 	if r.Method != "POST" {
 		sendJSONResponse(w, errorStatus{status: http.StatusMethodNotAllowed})
@@ -105,7 +101,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		s.tables.mu.Unlock()
 
 		data := botHandshake{
-			BotVersion:         internal.GetBotVersion(getHost(r)),
+			BotVersion:         internal.GetBotVersion(r),
 			BotConfigRev:       "??",
 			BotConfigName:      "bot_config.py",
 			ServerVersion:      serverVersion,
@@ -169,8 +165,7 @@ func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Tim
 	// In practice it would be the command sent.
 	// bot.addEvent(now, "poll", "")
 	s.tables.mu.Unlock()
-
-	if version := internal.GetBotVersion(getHost(r)); bot.Version != version {
+	if version := internal.GetBotVersion(r); bot.Version != version {
 		sendJSONResponse(w, botPoll{
 			Cmd:     "update",
 			Version: version,
@@ -187,6 +182,8 @@ func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Tim
 	})
 }
 
+// botRequest is the JSON HTTP POST content. Depending on different endpoints,
+// different values are used. This should be cleaned up.
 type botRequest struct {
 	Token string `json:"tok"`
 	//BotID       string                 `json:"bot_id"`

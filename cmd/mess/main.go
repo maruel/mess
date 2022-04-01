@@ -7,13 +7,35 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 )
 
 var started = time.Now()
 
+func configureLog() {
+	zerolog.CallerMarshalFunc = func(file string, line int) string {
+		short := file
+		for i := len(file) - 1; i > 0; i-- {
+			if file[i] == '/' {
+				short = file[i+1:]
+				break
+			}
+		}
+		return short + ":" + strconv.Itoa(line)
+	}
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	log.Logger = log.Logger.With().Caller().Logger()
+}
+
 func mainImpl() error {
+	configureLog()
 	port := flag.Int("port", 7899, "HTTP port")
 	cid := flag.String("cid", "", "Google OAuth2 Client ID")
 	flag.Parse()
@@ -60,7 +82,7 @@ func mainImpl() error {
 		wg.Done()
 	}()
 
-	fmt.Printf("Started in %dms.\n", time.Since(started).Round(time.Millisecond)/time.Millisecond)
+	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
 	done := ctx.Done()
 	wg.Add(1)
 	go func() {
@@ -78,14 +100,17 @@ func mainImpl() error {
 	}()
 
 	<-done
-	fmt.Printf("Terminating...\n")
+	stopping := time.Now()
+	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Terminating")
 	// Do not save until everything completed.
 	wg.Wait()
-	if err := d.save(); err != nil {
+	err := d.save()
+	if err != nil {
 		// This is a big deal.
-		return fmt.Errorf("data loss! %w", err)
+		err = fmt.Errorf("data loss! %w", err)
 	}
-	return nil
+	log.Info().Dur("ms", time.Since(stopping).Round(time.Millisecond)/10).Msg("Saved DB")
+	return err
 }
 
 func main() {

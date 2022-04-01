@@ -10,21 +10,33 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
+	"net/http"
 	"sort"
 	"strconv"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
+func getHost(r *http.Request) string {
+	if r.URL.Host != "" {
+		return r.URL.Host
+	}
+	return r.Header.Get("X-Forwarded-Host")
+}
+
 // GetBotZIP return the swarming_bot.zip's hashed content.
-func GetBotVersion(host string) string {
+func GetBotVersion(r *http.Request) string {
+	host := getHost(r)
 	mu.Lock()
 	v := botVersion[host]
 	mu.Unlock()
+	// Was already cached, quick return.
 	if v != "" {
 		return v
 	}
-	GetBotZIP(host)
+	GetBotZIP(r)
 	mu.Lock()
 	v = botVersion[host]
 	mu.Unlock()
@@ -32,15 +44,17 @@ func GetBotVersion(host string) string {
 }
 
 // GetBotZIP return the swarming_bot.zip bytes.
-func GetBotZIP(host string) []byte {
-	log.Printf("GetBotZIP(%s)", host)
+func GetBotZIP(req *http.Request) []byte {
+	host := getHost(req)
 	mu.Lock()
 	b := botCode[host]
 	mu.Unlock()
+	// Was already cached, quick return.
 	if b != nil {
 		return b
 	}
 
+	s := time.Now()
 	cfg, err := json.Marshal(config{Server: "https://" + host})
 	if err != nil {
 		panic(err)
@@ -96,15 +110,22 @@ func GetBotZIP(host string) []byte {
 	b = buf.Bytes()
 	v := hex.EncodeToString(h.Sum(nil))
 
+	race := false
 	mu.Lock()
 	if b2 := botCode[host]; b2 != nil {
 		// Discard our version.
+		race = true
 		b = b2
 	} else {
 		botCode[host] = b
 		botVersion[host] = v
 	}
 	mu.Unlock()
+
+	log.Ctx(req.Context()).Info().Str("host", host).Str("hash", v).
+		Int("size", len(b)).Bool("race", race).
+		Dur("ms", time.Since(s).Round(time.Millisecond/10)).
+		Msg("GetBotZIP")
 	return b
 }
 

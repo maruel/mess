@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/maruel/mess/internal"
+	"github.com/maruel/mess/internal/model"
+	"github.com/maruel/mess/messapi"
 )
 
 func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
@@ -84,21 +86,15 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.tables.mu.Lock()
-	bot, ok := s.tables.Bots[id]
-	if !ok {
-		bot = &Bot{Create: now}
-		s.tables.Bots[id] = bot
-	}
+	bot := model.Bot{Key: id, Create: now}
+	s.tables.BotGet(id, &bot)
 	bot.LastSeen = now
 	bot.Version = br.Version
-	s.tables.mu.Unlock()
+	s.tables.BotSet(&bot)
 
 	// API URLs.
 	if r.URL.Path == "/handshake" {
-		s.tables.mu.Lock()
-		bot.addEvent(now, "handshake", "")
-		s.tables.mu.Unlock()
+		bot.AddEvent(now, "handshake", "")
 
 		data := botHandshake{
 			BotVersion:         internal.GetBotVersion(r),
@@ -108,23 +104,24 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 			BotGroupCfgVersion: "??",
 			BotGroupCfg: botGroupCfg{
 				// Inject server side dimensions.
-				Dimensions: []StringListPair{},
+				Dimensions: []messapi.StringListPair{},
 			},
 		}
 		// Inject data.BotConfig, data.BotConfigRev, data.BotConfigName
 		sendJSONResponse(w, data)
+		s.tables.BotSet(&bot)
 		return
 	}
 
 	if r.URL.Path == "/poll" {
-		s.apiBotPoll(w, r, now, id, bot)
+		s.apiBotPoll(w, r, now, id, &bot)
+		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/event" {
-		s.tables.mu.Lock()
-		bot.addEvent(now, "event", "TODO")
-		s.tables.mu.Unlock()
+		bot.AddEvent(now, "event", "TODO")
 		sendJSONResponse(w, map[string]string{})
+		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/oauth_token" {
@@ -133,6 +130,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		// "scopes"
 		// "task_id"
 		sendJSONResponse(w, map[string]string{})
+		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/id_token" {
@@ -141,30 +139,27 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		// "audience"
 		// "task_id"
 		sendJSONResponse(w, map[string]string{})
+		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/task_update" {
-		s.tables.mu.Lock()
-		bot.addEvent(now, "task_update", "TODO")
-		s.tables.mu.Unlock()
+		bot.AddEvent(now, "task_update", "TODO")
 		sendJSONResponse(w, map[string]string{})
+		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/task_error" {
-		s.tables.mu.Lock()
-		bot.addEvent(now, "task_error", "TODO")
-		s.tables.mu.Unlock()
+		bot.AddEvent(now, "task_error", "TODO")
 		sendJSONResponse(w, map[string]string{})
+		s.tables.BotSet(&bot)
 		return
 	}
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
-func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Time, id string, bot *Bot) {
-	s.tables.mu.Lock()
+func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Time, id string, bot *model.Bot) {
 	// In practice it would be the command sent.
-	// bot.addEvent(now, "poll", "")
-	s.tables.mu.Unlock()
+	// bot.AddEvent(now, "poll", "")
 	if version := internal.GetBotVersion(r); bot.Version != version {
 		sendJSONResponse(w, botPoll{
 			Cmd:     "update",
@@ -205,7 +200,7 @@ type botHandshake struct {
 }
 
 type botGroupCfg struct {
-	Dimensions []StringListPair `json:"dimensions"`
+	Dimensions []messapi.StringListPair `json:"dimensions"`
 }
 
 type botPoll struct {
@@ -235,9 +230,9 @@ type botPollManifest struct {
 	CIPDInput          []botPollCIPDInput     `json:"cipd_input"`
 	Command            []string               `json:"command"`
 	Containment        botPollContainment     `json:"containment"`
-	Dimensions         []StringPair           `json:"dimensions"`
-	Env                []StringPair           `json:"env"`
-	EnvPrefixes        []StringPair           `json:"env_prefixes"`
+	Dimensions         []messapi.StringPair   `json:"dimensions"`
+	Env                []messapi.StringPair   `json:"env"`
+	EnvPrefixes        []messapi.StringPair   `json:"env_prefixes"`
 	GracePeriod        int                    `json:"grace_period"`
 	HardTimeout        int                    `json:"hard_timeout"`
 	Host               string                 `json:"host"`
@@ -269,8 +264,8 @@ type botPollContainment struct {
 }
 
 type botPollCASInputRoot struct {
-	CASInstance string `json:"cas_instance"`
-	Digest      Digest `json:"digest"`
+	CASInstance string       `json:"cas_instance"`
+	Digest      model.Digest `json:"digest"`
 }
 
 type botPollRealm struct {

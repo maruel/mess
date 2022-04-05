@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/maruel/mess/internal/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
@@ -55,8 +56,8 @@ func mainImpl() error {
 		fmt.Printf("It should look like 1111-aaaaaaaaaaa.apps.googleusercontent.com\n")
 		fmt.Printf("\n")
 	}
-	d := db{}
-	if err := d.load(); err != nil {
+	d, err := model.NewDBJSON()
+	if err != nil {
 		return err
 	}
 
@@ -72,7 +73,7 @@ func mainImpl() error {
 		wg.Done()
 	}()
 
-	s := server{tables: &d.tables, cid: *cid}
+	s := server{tables: d, cid: *cid}
 	if err := s.start(*port); err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func mainImpl() error {
 				wg.Done()
 				return
 			case <-t.C:
-				d.save()
+				_ = d.Snapshot()
 			}
 		}
 	}()
@@ -104,7 +105,7 @@ func mainImpl() error {
 	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Terminating")
 	// Do not save until everything completed.
 	wg.Wait()
-	err := d.save()
+	err = d.Close()
 	if err != nil {
 		// This is a big deal.
 		err = fmt.Errorf("data loss! %w", err)

@@ -11,13 +11,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/maruel/mess/internal/model"
 	"github.com/maruel/mess/third_party/ui2/dist"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 type server struct {
-	tables *tables
+	tables model.Tables
 	cid    string
 	l      net.Listener
 }

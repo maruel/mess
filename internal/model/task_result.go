@@ -6,7 +6,7 @@ type TaskResult struct {
 	SchemaVersion int            `json:"a"`
 	Key           int64          `json:"b"`
 	BotID         string         `json:"c"`
-	Blobl         TaskResultBlob `json:"d"`
+	Blob          TaskResultBlob `json:"d"`
 }
 
 type TaskResultBlob struct {

@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -27,7 +27,7 @@ type rawTables struct {
 }
 
 func (t *rawTables) TaskRequestGet(id int64, r *TaskRequest) {
-	// No need for reflect.Copy() since TaskRequest are immutable.
+	// No need for deep copy since TaskRequest are immutable.
 	t.mu.Lock()
 	*r = *t.TasksRequest[id]
 	t.mu.Unlock()
@@ -37,10 +37,11 @@ func (t *rawTables) TaskRequestSet(r *TaskRequest) {
 	t.mu.Lock()
 	if t.TasksRequest[r.Key] == nil {
 		v := &TaskRequest{}
-		reflect.Copy(reflect.ValueOf(*v), reflect.ValueOf(*r))
+		// TODO(maruel): Deep copy slices. :(
+		*v = *r
 		t.TasksRequest[r.Key] = v
 	} else {
-		reflect.Copy(reflect.ValueOf(*t.TasksRequest[r.Key]), reflect.ValueOf(*r))
+		panic("task requests are immutable")
 	}
 	t.mu.Unlock()
 }
@@ -54,7 +55,8 @@ func (t *rawTables) TaskRequestCount() int {
 
 func (t *rawTables) TaskResultGet(id int64, r *TaskResult) {
 	t.mu.Lock()
-	reflect.Copy(reflect.ValueOf(*t), reflect.ValueOf(*t.TasksResult[id]))
+	// TODO(maruel): Deep copy slices. :(
+	*r = *t.TasksResult[id]
 	t.mu.Unlock()
 }
 
@@ -62,10 +64,12 @@ func (t *rawTables) TaskResultSet(r *TaskResult) {
 	t.mu.Lock()
 	if t.TasksResult[r.Key] == nil {
 		v := &TaskResult{}
-		reflect.Copy(reflect.ValueOf(*v), reflect.ValueOf(*r))
+		// TODO(maruel): Deep copy slices. :(
+		*v = *r
 		t.TasksResult[r.Key] = v
 	} else {
-		reflect.Copy(reflect.ValueOf(*t.TasksResult[r.Key]), reflect.ValueOf(*r))
+		// TODO(maruel): Deep copy slices. :(
+		*t.TasksResult[r.Key] = *r
 	}
 	t.mu.Unlock()
 }
@@ -79,7 +83,8 @@ func (t *rawTables) TaskResultCount() int {
 
 func (t *rawTables) BotGet(id string, b *Bot) {
 	t.mu.Lock()
-	reflect.Copy(reflect.ValueOf(*b), reflect.ValueOf(*t.Bots[id]))
+	// TODO(maruel): Deep copy slices. :(
+	*b = *t.Bots[id]
 	t.mu.Unlock()
 }
 
@@ -87,10 +92,12 @@ func (t *rawTables) BotSet(b *Bot) {
 	t.mu.Lock()
 	if t.Bots[b.Key] == nil {
 		v := &Bot{}
-		reflect.Copy(reflect.ValueOf(*v), reflect.ValueOf(*b))
+		// TODO(maruel): Deep copy slices. :(
+		*v = *b
 		t.Bots[b.Key] = v
 	} else {
-		reflect.Copy(reflect.ValueOf(*t.Bots[b.Key]), reflect.ValueOf(*b))
+		// TODO(maruel): Deep copy slices. :(
+		*t.Bots[b.Key] = *b
 	}
 	t.mu.Unlock()
 }
@@ -109,7 +116,8 @@ func (t *rawTables) BotGetAll(b []Bot) []Bot {
 	}
 	i := 0
 	for _, v := range t.Bots {
-		reflect.Copy(reflect.ValueOf(b[i]), reflect.ValueOf(*v))
+		// TODO(maruel): Deep copy slices. :(
+		b[i] = *v
 		i++
 	}
 	t.mu.Unlock()
@@ -144,10 +152,14 @@ func (t *rawTables) ReadOutput(key int64) (io.ReadCloser, error) {
 
 type jsonDriver struct {
 	rawTables
+	p string
 }
 
-func NewDBJSON() (DB, error) {
-	j := &jsonDriver{}
+// NewDBJSON opens file p.
+//
+// Use "db.json.zst".
+func NewDBJSON(p string) (DB, error) {
+	j := &jsonDriver{p: p}
 	if err := j.rawTables.init(); err != nil {
 		return nil, err
 	}
@@ -158,7 +170,7 @@ func NewDBJSON() (DB, error) {
 	//
 	// Use zstd since we can about shutdown / startup performance. We may want to
 	// use a more effective encoding that json.
-	src, err := os.ReadFile("db.json.zst")
+	src, err := os.ReadFile(p)
 	if os.IsNotExist(err) {
 		return j, nil
 	}
@@ -173,7 +185,7 @@ func NewDBJSON() (DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := j.loadFrom(bytes.NewReader(raw)); j != nil {
+	if err := j.loadFrom(bytes.NewReader(raw)); err != nil {
 		return nil, err
 	}
 	return j, nil
@@ -187,7 +199,15 @@ func (j *jsonDriver) Close() error {
 	// It's probably faster to buffer all in memory and write as one shot. It
 	// will likely use more memory and could be problematic over heavy memory
 	// usage. Stream for now to reduce risks.
-	f, err := os.OpenFile("db.json.new.zst", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	d := filepath.Dir(j.p)
+	b := filepath.Base(j.p)
+	if i := strings.Index(b, "."); i != -1 {
+		b = b[:i] + ".new" + b[i:]
+	} else {
+		b = b + ".new"
+	}
+	n := filepath.Join(d, b)
+	f, err := os.OpenFile(n, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -203,7 +223,7 @@ func (j *jsonDriver) Close() error {
 	}
 	if err == nil {
 		// Only overwrite if saving worked.
-		err = os.Rename("db.json.new.zst", "db.json.zst")
+		err = os.Rename(n, j.p)
 	}
 	return err
 }

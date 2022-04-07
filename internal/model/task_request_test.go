@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestTaskRequestJSON(t *testing.T) {
-	r := getTaskRequest()
 	p := filepath.Join(t.TempDir(), "db.json.zst")
-	// TODO(maruel): iterate recursively and check for reflect.Value.IsZero().
 	d, err := NewDBJSON(p)
 	if err != nil {
 		t.Fatal(err)
@@ -19,6 +18,7 @@ func TestTaskRequestJSON(t *testing.T) {
 	if l := d.TaskRequestCount(); l != 0 {
 		t.Fatal(l)
 	}
+	r := getTaskRequest()
 	d.TaskRequestSet(r)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
@@ -35,13 +35,48 @@ func TestTaskRequestJSON(t *testing.T) {
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(r, &got); diff != "" {
+	if diff := cmp.Diff(r, &got, cmpopts.IgnoreUnexported(TaskRequest{})); diff != "" {
 		t.Fatal(diff)
 	}
 }
 
+func TestTaskRequestSQL(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "db.json.zst")
+	d, err := NewDBSqlite3(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := d.TaskRequestCount(); l != 0 {
+		t.Fatal(l)
+	}
+	/* TODO
+	r := getTaskRequest()
+	d.TaskRequestSet(r)
+	//*/
+	if err = d.Close(); err != nil {
+		t.Fatal(err)
+	}
+	/*
+		d, err = NewDBSqlite3(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := d.TaskRequestCount(); l != 1 {
+			t.Fatal(l)
+		}
+		got := TaskRequest{}
+		d.TaskRequestGet(2, &got)
+		if err = d.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(r, &got, cmpopts.IgnoreUnexported(TaskRequest{})); diff != "" {
+			t.Fatal(diff)
+		}
+	*/
+}
+
 func getTaskRequest() *TaskRequest {
-	return &TaskRequest{
+	r := &TaskRequest{
 		SchemaVersion: 1,
 		Key:           2,
 		Created:       time.Date(2020, 3, 13, 10, 9, 8, 7, time.UTC),
@@ -104,4 +139,6 @@ func getTaskRequest() *TaskRequest {
 			},
 		},
 	}
+	// TODO(maruel): iterate recursively and check for reflect.Value.IsZero().
+	return r
 }

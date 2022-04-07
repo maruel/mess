@@ -9,14 +9,39 @@ import (
 )
 
 type TaskRequest struct {
-	SchemaVersion int             `json:"a"`
-	Key           int64           `json:"b"`
+	Key           int64           `json:"a"`
+	SchemaVersion int             `json:"b"`
 	Created       time.Time       `json:"c"`
 	Priority      int             `json:"d"`
 	ParentTask    int64           `json:"e"`
 	Tags          []string        `json:"f"` // TODO(maruel): repeated values doesn't work in sqlite3?
 	Blob          TaskRequestBlob `json:"g"`
+	raw           []byte
 }
+
+func (r *TaskRequest) fields() []interface{} {
+	return []interface{}{
+		&r.Key,
+		&r.SchemaVersion,
+		&r.Created,
+		&r.Priority,
+		&r.ParentTask,
+		&r.Tags,
+		&r.raw,
+	}
+}
+
+const schemaTaskRequest = `
+CREATE TABLE IF NOT EXISTS TaskRequest (
+  Key           INTEGER PRIMARY KEY,
+	SchemaVersion INTEGER NOT NULL,
+	Created       TIME    NOT NULL,
+	Priority      INTEGER NOT NULL,
+	ParentTask    INTEGER,
+	Tags          TEXT,
+	raw           BYTE NOT NULL
+) WITHOUT ROWID;
+`
 
 // TaskRequestBlob contains the unindexed fields.
 type TaskRequestBlob struct {

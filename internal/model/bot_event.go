@@ -5,21 +5,47 @@ import (
 	"time"
 )
 
+// BotEvent is an event on a bot.
 type BotEvent struct {
-	Key             int                 `json:"a"`
-	SchemaVersion   int                 `json:"b"`
-	BotID           string              `json:"c"`
-	Time            time.Time           `json:"d"`
-	Event           string              `json:"e"`
-	Message         string              `json:"f"`
-	Dimensions      map[string][]string `json:"g"`
-	State           string              `json:"h"`
-	ExternalIP      string              `json:"i"`
-	AuthenticatedAs string              `json:"j"`
-	Version         string              `json:"k"`
-	QuarantinedMsg  string              `json:"l"`
-	MaintenanceMsg  string              `json:"m"`
-	TaskID          string              `json:"n"`
+	Key           int    `json:"a"`
+	SchemaVersion int    `json:"b"`
+	BotID         string `json:"c"`
+	// Information about the event.
+	Time    time.Time `json:"d"`
+	Event   string    `json:"e"`
+	Message string    `json:"f"`
+	// Information copied for the bot.
+	Version         string              `json:"g"`
+	AuthenticatedAs string              `json:"h"`
+	Dimensions      map[string][]string `json:"i"`
+	State           []byte              `json:"j"`
+	ExternalIP      string              `json:"k"`
+	TaskID          int                 `json:"l"`
+	QuarantinedMsg  string              `json:"m"`
+	MaintenanceMsg  string              `json:"n"`
+}
+
+// InitFrom initializes a BotEvent from a bot.
+func (e *BotEvent) InitFrom(b *Bot, now time.Time, event, msg string) {
+	e.Key = 0
+	e.SchemaVersion = 1
+	e.BotID = b.Key
+	e.Time = now
+	e.Event = event
+	e.Message = msg
+	e.Version = b.Version
+	e.AuthenticatedAs = b.AuthenticatedAs
+	// Make a copy of the map but not the values, since they are immutable (to
+	// save memory).
+	e.Dimensions = make(map[string][]string, len(b.Dimensions))
+	for k, v := range b.Dimensions {
+		e.Dimensions[k] = v
+	}
+	e.State = b.State
+	e.ExternalIP = b.ExternalIP
+	e.TaskID = b.TaskID
+	e.QuarantinedMsg = b.QuarantinedMsg
+	e.MaintenanceMsg = b.MaintenanceMsg
 }
 
 type botEventSQL struct {
@@ -48,14 +74,14 @@ func (b *botEventSQL) from(d *BotEvent) {
 	s := botEventSQLBlob{
 		Event:           d.Event,
 		Message:         d.Message,
+		Version:         d.Version,
+		AuthenticatedAs: d.AuthenticatedAs,
 		Dimensions:      d.Dimensions,
 		State:           d.State,
 		ExternalIP:      d.ExternalIP,
-		AuthenticatedAs: d.AuthenticatedAs,
-		Version:         d.Version,
+		TaskID:          d.TaskID,
 		QuarantinedMsg:  d.QuarantinedMsg,
 		MaintenanceMsg:  d.MaintenanceMsg,
-		TaskID:          d.TaskID,
 	}
 	var err error
 	b.blob, err = json.Marshal(&s)
@@ -75,14 +101,14 @@ func (b *botEventSQL) to(d *BotEvent) {
 	}
 	d.Event = s.Event
 	d.Message = s.Message
+	d.Version = s.Version
+	d.AuthenticatedAs = s.AuthenticatedAs
 	d.Dimensions = s.Dimensions
 	d.State = s.State
 	d.ExternalIP = s.ExternalIP
-	d.AuthenticatedAs = s.AuthenticatedAs
-	d.Version = s.Version
+	d.TaskID = s.TaskID
 	d.QuarantinedMsg = s.QuarantinedMsg
 	d.MaintenanceMsg = s.MaintenanceMsg
-	d.TaskID = s.TaskID
 }
 
 // See:
@@ -103,12 +129,12 @@ CREATE TABLE IF NOT EXISTS BotEvent (
 type botEventSQLBlob struct {
 	Event           string              `json:"a"`
 	Message         string              `json:"b"`
-	Dimensions      map[string][]string `json:"c"`
-	State           string              `json:"d"`
-	ExternalIP      string              `json:"e"`
-	AuthenticatedAs string              `json:"f"`
-	Version         string              `json:"g"`
-	QuarantinedMsg  string              `json:"h"`
-	MaintenanceMsg  string              `json:"i"`
-	TaskID          string              `json:"j"`
+	Version         string              `json:"c"`
+	AuthenticatedAs string              `json:"d"`
+	Dimensions      map[string][]string `json:"e"`
+	State           []byte              `json:"f"`
+	ExternalIP      string              `json:"g"`
+	TaskID          int                 `json:"h"`
+	QuarantinedMsg  string              `json:"i"`
+	MaintenanceMsg  string              `json:"j"`
 }

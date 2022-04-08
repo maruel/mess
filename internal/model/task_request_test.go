@@ -20,8 +20,8 @@ func TestTaskRequestJSON(t *testing.T) {
 	if l := d.TaskRequestCount(); l != 0 {
 		t.Fatal(l)
 	}
-	r := getTaskRequest()
-	d.TaskRequestSet(r)
+	want := getTaskRequest()
+	d.TaskRequestAdd(want)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestTaskRequestJSON(t *testing.T) {
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(r, &got); diff != "" {
+	if diff := cmp.Diff(want, &got); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 }
@@ -51,8 +51,8 @@ func TestTaskRequestSQL(t *testing.T) {
 	if l := d.TaskRequestCount(); l != 0 {
 		t.Fatal(l)
 	}
-	r := getTaskRequest()
-	d.TaskRequestSet(r)
+	want := getTaskRequest()
+	d.TaskRequestAdd(want)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestTaskRequestSQL(t *testing.T) {
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(r, &got); diff != "" {
+	if diff := cmp.Diff(want, &got); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 }

@@ -95,7 +95,8 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	// API URLs.
 	if r.URL.Path == "/handshake" {
 		e := model.BotEvent{}
-		bot.AddEvent(now, "handshake", "", &e)
+		e.InitFrom(&bot, now, "handshake", "")
+		s.tables.BotEventAdd(&e)
 
 		data := botHandshake{
 			BotVersion:         internal.GetBotVersion(r),
@@ -121,7 +122,8 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/event" {
 		e := model.BotEvent{}
-		bot.AddEvent(now, "event", "TODO", &e)
+		e.InitFrom(&bot, now, "TODO", "")
+		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return
@@ -146,14 +148,16 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/task_update" {
 		e := model.BotEvent{}
-		bot.AddEvent(now, "task_update", "TODO", &e)
+		e.InitFrom(&bot, now, "task_update", "TODO")
+		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/task_error" {
 		e := model.BotEvent{}
-		bot.AddEvent(now, "task_error", "TODO", &e)
+		e.InitFrom(&bot, now, "task_error", "TODO")
+		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return
@@ -241,7 +245,7 @@ type botPollManifest struct {
 	HardTimeout        int                    `json:"hard_timeout"`
 	Host               string                 `json:"host"`
 	IOTimeout          int                    `json:"io_timeout"`
-	SecretBytes        string                 `json:"secret_bytes` // base64 encoded
+	SecretBytes        string                 `json:"secret_bytes"` // base64 encoded
 	CASInputRoot       botPollCASInputRoot    `json:"cas_input_root"`
 	Outputs            []string               `json:"outputs"`
 	Realm              botPollRealm           `json:"realm"`

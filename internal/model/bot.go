@@ -6,28 +6,18 @@ import (
 )
 
 type Bot struct {
-	Key           string              `json:"a"`
-	SchemaVersion int                 `json:"b"`
-	Created       time.Time           `json:"c"`
-	LastSeen      time.Time           `json:"d"`
-	Version       string              `json:"e"`
-	Dimensions    map[string][]string `json:"f"`
-}
-
-func (b *Bot) AddEvent(now time.Time, event, msg string, e *BotEvent) {
-	e.SchemaVersion = 1
-	e.Key = 0
-	e.BotID = b.Key
-	e.Time = now
-	e.Event = event
-	e.Message = msg
-	// Make a copy of the map but not the values, since they are immutable (to
-	// save memory).
-	e.Dimensions = make(map[string][]string, len(b.Dimensions))
-	for k, v := range b.Dimensions {
-		e.Dimensions[k] = v
-	}
-	e.Version = b.Version
+	Key             string              `json:"a"`
+	SchemaVersion   int                 `json:"b"`
+	Created         time.Time           `json:"c"`
+	LastSeen        time.Time           `json:"d"`
+	Version         string              `json:"e"`
+	AuthenticatedAs string              `json:"f"`
+	Dimensions      map[string][]string `json:"g"`
+	State           []byte              `json:"h"`
+	ExternalIP      string              `json:"i"`
+	TaskID          int                 `json:"j"`
+	QuarantinedMsg  string              `json:"k"`
+	MaintenanceMsg  string              `json:"l"`
 }
 
 type botSQL struct {
@@ -56,7 +46,15 @@ func (b *botSQL) from(d *Bot) {
 	b.created = d.Created.UnixMicro()
 	b.lastSeen = d.LastSeen.UnixMicro()
 	b.version = d.Version
-	s := botSQLBlob{Dimensions: d.Dimensions}
+	s := botSQLBlob{
+		AuthenticatedAs: d.AuthenticatedAs,
+		Dimensions:      d.Dimensions,
+		State:           d.State,
+		ExternalIP:      d.ExternalIP,
+		TaskID:          d.TaskID,
+		QuarantinedMsg:  d.QuarantinedMsg,
+		MaintenanceMsg:  d.MaintenanceMsg,
+	}
 	var err error
 	b.blob, err = json.Marshal(&s)
 	if err != nil {
@@ -74,7 +72,13 @@ func (b *botSQL) to(d *Bot) {
 	if err := json.Unmarshal(b.blob, &s); err != nil {
 		panic("internal error: " + err.Error())
 	}
+	d.AuthenticatedAs = s.AuthenticatedAs
 	d.Dimensions = s.Dimensions
+	d.State = s.State
+	d.ExternalIP = s.ExternalIP
+	d.TaskID = s.TaskID
+	d.QuarantinedMsg = s.QuarantinedMsg
+	d.MaintenanceMsg = s.MaintenanceMsg
 }
 
 // See:
@@ -94,5 +98,11 @@ CREATE TABLE IF NOT EXISTS Bot (
 
 // botSQLBlob contains the unindexed fields.
 type botSQLBlob struct {
-	Dimensions map[string][]string `json:"a"`
+	AuthenticatedAs string              `json:"a"`
+	Dimensions      map[string][]string `json:"b"`
+	State           []byte              `json:"c"`
+	ExternalIP      string              `json:"d"`
+	TaskID          int                 `json:"e"`
+	QuarantinedMsg  string              `json:"f"`
+	MaintenanceMsg  string              `json:"g"`
 }

@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -62,7 +63,7 @@ func (s *sqlDB) TaskRequestGet(id int64, r *TaskRequest) {
 	r2.to(r)
 }
 
-func (s *sqlDB) TaskRequestSet(r *TaskRequest) {
+func (s *sqlDB) TaskRequestAdd(r *TaskRequest) {
 	r2 := taskRequestSQL{}
 	r2.from(r)
 	stmt := "INSERT INTO TaskRequest (key, schemaVersion, created, priority, parentTask, tags, blob) VALUES ($1, $2, $3, $4, $5, $6, $7)"
@@ -154,12 +155,15 @@ func (s *sqlDB) BotCount() int {
 	return count
 }
 
-func (s *sqlDB) BotGetAll(all []Bot) []Bot {
+func (s *sqlDB) BotGetSlice(cursor string, limit int) ([]Bot, string) {
+	// TODO(maruel): Implement cursor and limit.
 	rows, err := s.db.Query("SELECT * FROM Bot ORDER BY key")
 	if err != nil {
 		// TODO(maruel): Surface error? Delete entity?
 		panic(err)
 	}
+	// TODO(maruel): Count first so we can allocate the right amount.
+	var all []Bot
 	b2 := botSQL{}
 	b := Bot{}
 	for rows.Next() {
@@ -176,5 +180,44 @@ func (s *sqlDB) BotGetAll(all []Bot) []Bot {
 		panic(err)
 	}
 	rows.Close()
-	return all
+	return all, ""
+}
+
+func (s *sqlDB) BotEventAdd(e *BotEvent) {
+	e2 := botEventSQL{}
+	e2.from(e)
+	stmt := "INSERT INTO BotEvent (key, schemaVersion, botID, time, blob) VALUES ($1, $2, $3, $4, $5)"
+	if _, err := s.db.Exec(stmt, e2.fields()...); err != nil {
+		// TODO(maruel): Surface error? Delete entity?
+		panic(err)
+		return
+	}
+}
+
+func (s *sqlDB) BotEventGetSlice(id, cursor string, limit int, earliest, latest time.Time) ([]BotEvent, string) {
+	// TODO(maruel): Implement cursor and limit.
+	rows, err := s.db.Query("SELECT * FROM BotEvent WHERE botID = ? ORDER BY key", id)
+	if err != nil {
+		// TODO(maruel): Surface error? Delete entity?
+		panic(err)
+	}
+	// TODO(maruel): Count first so we can allocate the right amount.
+	var all []BotEvent
+	b2 := botEventSQL{}
+	b := BotEvent{}
+	for rows.Next() {
+		if err := rows.Scan(b2.fields()...); err != nil {
+			// TODO(maruel): Surface error? Delete entity?
+			panic(err)
+		}
+		b2.to(&b)
+		all = append(all, b)
+	}
+	// Check for errors from iterating over rows.
+	if err := rows.Err(); err != nil {
+		// TODO(maruel): Surface error? Delete entity?
+		panic(err)
+	}
+	rows.Close()
+	return all, ""
 }

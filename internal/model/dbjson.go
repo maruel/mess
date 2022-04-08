@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -24,6 +25,8 @@ type rawTables struct {
 	TasksResult map[int64]*TaskResult
 
 	Bots map[string]*Bot
+
+	BotEvents map[string][]*BotEvent
 }
 
 func (t *rawTables) TaskRequestGet(id int64, r *TaskRequest) {
@@ -33,16 +36,15 @@ func (t *rawTables) TaskRequestGet(id int64, r *TaskRequest) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) TaskRequestSet(r *TaskRequest) {
+func (t *rawTables) TaskRequestAdd(r *TaskRequest) {
 	t.mu.Lock()
-	if t.TasksRequest[r.Key] == nil {
-		v := &TaskRequest{}
-		// TODO(maruel): Deep copy slices. :(
-		*v = *r
-		t.TasksRequest[r.Key] = v
-	} else {
+	if t.TasksRequest[r.Key] != nil {
 		panic("task requests are immutable")
 	}
+	v := &TaskRequest{}
+	// TODO(maruel): Deep copy slices. :(
+	*v = *r
+	t.TasksRequest[r.Key] = v
 	t.mu.Unlock()
 }
 
@@ -109,11 +111,10 @@ func (t *rawTables) BotCount() int {
 	return l
 }
 
-func (t *rawTables) BotGetAll(b []Bot) []Bot {
+func (t *rawTables) BotGetSlice(cursor string, limit int) ([]Bot, string) {
+	// TODO(maruel): Implement cursor and limit.
 	t.mu.Lock()
-	if len(b) < len(t.Bots) {
-		b = make([]Bot, len(t.Bots))
-	}
+	b := make([]Bot, len(t.Bots))
 	i := 0
 	for _, v := range t.Bots {
 		// TODO(maruel): Deep copy slices. :(
@@ -121,7 +122,38 @@ func (t *rawTables) BotGetAll(b []Bot) []Bot {
 		i++
 	}
 	t.mu.Unlock()
-	return b
+	return b, ""
+}
+
+func (t *rawTables) BotEventAdd(e *BotEvent) {
+	t.mu.Lock()
+	t.BotEvents[e.BotID] = append(t.BotEvents[e.BotID], e)
+	t.mu.Unlock()
+}
+
+func (t *rawTables) BotEventGetSlice(id, cursor string, limit int, earliest, latest time.Time) ([]BotEvent, string) {
+	// TODO(maruel): Implement cursor and limit.
+	t.mu.Lock()
+	be := t.BotEvents[id]
+	b := make([]BotEvent, len(be))
+	for i, v := range be {
+		// TODO(maruel): Deep copy slices. :(
+		b[i] = *v
+	}
+	t.mu.Unlock()
+	return b, ""
+}
+
+func (t *rawTables) WriteOutput(key int64) (io.WriteCloser, error) {
+	p := filepath.Join("output", strconv.FormatInt(key, 10))
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	return f, err
+}
+
+func (t *rawTables) ReadOutput(key int64) (io.ReadCloser, error) {
+	p := filepath.Join("output", strconv.FormatInt(key, 10))
+	f, err := os.Open(p)
+	return f, err
 }
 
 func (t *rawTables) init() error {
@@ -135,19 +167,8 @@ func (t *rawTables) init() error {
 	t.TasksRequest = map[int64]*TaskRequest{}
 	t.TasksResult = map[int64]*TaskResult{}
 	t.Bots = map[string]*Bot{}
+	t.BotEvents = map[string][]*BotEvent{}
 	return nil
-}
-
-func (t *rawTables) WriteOutput(key int64) (io.WriteCloser, error) {
-	p := filepath.Join("output", strconv.FormatInt(key, 10))
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	return f, err
-}
-
-func (t *rawTables) ReadOutput(key int64) (io.ReadCloser, error) {
-	p := filepath.Join("output", strconv.FormatInt(key, 10))
-	f, err := os.Open(p)
-	return f, err
 }
 
 type jsonDriver struct {

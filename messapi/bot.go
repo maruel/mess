@@ -2,6 +2,7 @@ package messapi
 
 import (
 	"sort"
+	"strconv"
 
 	"github.com/maruel/mess/internal/model"
 )
@@ -98,13 +99,14 @@ func (b *BotEvent) FromDB(m *model.BotEvent) {
 		b.Dimensions = append(b.Dimensions, StringListPair{Key: k, Values: v})
 	}
 	sort.Slice(b.Dimensions, func(i, j int) bool { return b.Dimensions[i].Key < b.Dimensions[j].Key })
-	b.State = m.State
+	b.State = string(m.State)
 	b.ExternalIP = m.ExternalIP
 	b.AuthenticatedAs = m.AuthenticatedAs
 	b.Version = m.Version
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg
-	b.TaskID = m.TaskID
+	// TODO(maruel): internal ID to external ID.
+	b.TaskID = strconv.Itoa(m.TaskID)
 }
 
 type BotTasks struct {

@@ -53,13 +53,13 @@ func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/bots/list" {
 		// TODO(maruel): Arguments.
 		// TODO(maruel): Implement.
-		bots := s.tables.BotGetAll(nil)
+		bots, cursor := s.tables.BotGetSlice("", 100)
 		items := make([]messapi.Bot, len(bots))
 		for i := range bots {
 			items[i].FromDB(&bots[i])
 		}
 		sendJSONResponse(w, messapi.BotsList{
-			Cursor:       "",
+			Cursor:       cursor,
 			Items:        items,
 			Now:          cloudNow,
 			DeathTimeout: 30,

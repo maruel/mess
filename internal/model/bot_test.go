@@ -35,7 +35,7 @@ func TestBotJSON(t *testing.T) {
 	want2 := *want1
 	want2.LastSeen = time.Now().UTC()
 	d.BotSet(&want2)
-	all := d.BotGetAll(nil)
+	all, _ := d.BotGetSlice("", 100)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestBotSQL(t *testing.T) {
 	want2 := *want1
 	want2.LastSeen = time.Now().UTC().Round(time.Microsecond)
 	d.BotSet(&want2)
-	all := d.BotGetAll(nil)
+	all, _ := d.BotGetSlice("", 100)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -102,33 +102,17 @@ func TestBotNonZero(t *testing.T) {
 
 func getBot() *Bot {
 	return &Bot{
-		SchemaVersion: 1,
-		Key:           "bot1",
-		Created:       time.Date(2020, 3, 13, 10, 9, 8, 7000, time.UTC),
-		LastSeen:      time.Date(2020, 4, 13, 10, 9, 8, 7000, time.UTC),
-		Version:       "botv1",
-		Dimensions:    map[string][]string{"a": {"b", "c"}},
-		/*
-			Events: []*BotEvent{
-				{
-					SchemaVersion: 1,
-					Key:           3,
-					BotID:         "bot1",
-					Time:          time.Date(2020, 5, 13, 10, 9, 8, 7, time.UTC),
-					Blob: BotEventBlob{
-						Event:           "bot_update",
-						Message:         "msg",
-						Dimensions:      map[string][]string{"e": {"f", "g"}},
-						State:           "{}",
-						ExternalIP:      "1.2.3.4",
-						AuthenticatedAs: "auth1",
-						Version:         "v1",
-						QuarantinedMsg:  "quarantined",
-						MaintenanceMsg:  "maintenance",
-						TaskID:          "task1",
-					},
-				},
-			},
-		*/
+		Key:             "bot1",
+		SchemaVersion:   1,
+		Created:         time.Date(2020, 3, 13, 10, 9, 8, 7000, time.UTC),
+		LastSeen:        time.Date(2020, 4, 13, 10, 9, 8, 7000, time.UTC),
+		Version:         "botv1",
+		AuthenticatedAs: "gcp1",
+		Dimensions:      map[string][]string{"a": {"b", "c"}},
+		State:           []byte(`{"python": "2.7"}`),
+		ExternalIP:      "1.2.3.4",
+		TaskID:          123,
+		QuarantinedMsg:  "quarantined for real",
+		MaintenanceMsg:  "very busy",
 	}
 }

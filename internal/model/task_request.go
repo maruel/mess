@@ -4,12 +4,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
 	rbe "github.com/maruel/mess/third_party/build/bazel/remote/execution/v2"
 )
 
+// TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
 	Key                 int64       `json:"a"`
 	SchemaVersion       int         `json:"b"`
@@ -30,6 +32,33 @@ type TaskRequest struct {
 	Realm               string      `json:"q"`
 	ResultDB            bool        `json:"r"`
 	BuildToken          BuildToken  `json:"s"`
+}
+
+// TaskID is a task ID as presented to the user.
+type TaskID string
+
+// ToTaskID converts an internal DB key to a external format.
+func ToTaskID(key int64) TaskID {
+	// Swarming uses the last nibbles:
+	// - schema version, used 0 and 1. mess uses 2.
+	// - retries, used 0, 1 and 2. mess uses 0
+	if key < 0 {
+		return ""
+	}
+	return TaskID(strconv.FormatInt(key, 10) + "20")
+}
+
+// FromTaskID converts an external key to the internal DB format.
+func FromTaskID(t TaskID) int64 {
+	l := len(t)
+	if l < 3 || t[l-2:l] != "20" {
+		return 0
+	}
+	v, _ := strconv.ParseInt(string(t[:l-2]), 10, 64)
+	if v < 0 {
+		return 0
+	}
+	return v
 }
 
 type taskRequestSQL struct {
@@ -115,13 +144,14 @@ func (r *taskRequestSQL) to(t *TaskRequest) {
 // BLOB
 const schemaTaskRequest = `
 CREATE TABLE IF NOT EXISTS TaskRequest (
-	key           INTEGER PRIMARY KEY,
+	key           INTEGER NOT NULL,
 	schemaVersion INTEGER NOT NULL,
 	created       INTEGER NOT NULL,
 	priority      INTEGER NOT NULL,
 	parentTask    INTEGER,
 	tags          TEXT,
-	blob          BLOB    NOT NULL
+	blob          BLOB    NOT NULL,
+	PRIMARY KEY(key DESC)
 ) STRICT;
 `
 
@@ -144,19 +174,23 @@ type taskRequestSQLBlob struct {
 	//Expiration time.Time          `json:""`
 }
 
+// ContainmentType declares the type of process containment the bot shall do.
 type ContainmentType int
 
+// Valid ContainmentType.
 const (
 	ContainmentNone ContainmentType = iota
 	ContainmentAuto
 	ContainmentJobObject
 )
 
+// Containment declares the type of process containment the bot shall do.
 type Containment struct {
 	LowerPriority   bool            `json:"a"`
 	ContainmentType ContainmentType `json:"b"`
 }
 
+// TaskProperties declares what the task runs.
 type TaskProperties struct {
 	Caches       []Cache           `json:"a"`
 	Command      []string          `json:"b"`
@@ -176,12 +210,14 @@ type TaskProperties struct {
 	Containment  Containment       `json:"p"`
 }
 
+// TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
 	Properties      TaskProperties `json:"a"`
 	Expiration      time.Duration  `json:"b"`
 	WaitForCapacity bool           `json:"c"`
 }
 
+// BuildToken is a LUCI Buildbucket token.
 type BuildToken struct {
 	BuildID         int64  `json:"a"`
 	Token           string `json:"b"`
@@ -194,11 +230,13 @@ type Digest struct {
 	Hash [32]byte `json:"b"`
 }
 
+// ToProto converts to RBE's digest message.
 func (d *Digest) ToProto(p *rbe.Digest) {
 	p.SizeBytes = d.Size
 	p.Hash = hex.EncodeToString(d.Hash[:])
 }
 
+// FromProto converts from RBE's digest message.
 func (d *Digest) FromProto(p *rbe.Digest) error {
 	d.Size = p.SizeBytes
 	if len(p.Hash) != 64 {
@@ -209,12 +247,14 @@ func (d *Digest) FromProto(p *rbe.Digest) error {
 	return err
 }
 
+// CIPDPackage declares a LUCI CIPD package.
 type CIPDPackage struct {
 	PkgName string `json:"a"`
 	Version string `json:"b"`
 	Path    string `json:"c"`
 }
 
+// Cache is a named cache that survives across tasks.
 type Cache struct {
 	Name string `json:"a"`
 	Path string `json:"b"`

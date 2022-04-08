@@ -7,7 +7,7 @@ import (
 
 // BotEvent is an event on a bot.
 type BotEvent struct {
-	Key           int    `json:"a"`
+	Key           int64  `json:"a"`
 	SchemaVersion int    `json:"b"`
 	BotID         string `json:"c"`
 	// Information about the event.
@@ -20,7 +20,7 @@ type BotEvent struct {
 	Dimensions      map[string][]string `json:"i"`
 	State           []byte              `json:"j"`
 	ExternalIP      string              `json:"k"`
-	TaskID          int                 `json:"l"`
+	TaskID          int64               `json:"l"`
 	QuarantinedMsg  string              `json:"m"`
 	MaintenanceMsg  string              `json:"n"`
 }
@@ -49,7 +49,7 @@ func (e *BotEvent) InitFrom(b *Bot, now time.Time, event, msg string) {
 }
 
 type botEventSQL struct {
-	key           int
+	key           int64
 	schemaVersion int
 	botID         string
 	time          int64
@@ -117,11 +117,12 @@ func (b *botEventSQL) to(d *BotEvent) {
 // BLOB
 const schemaBotEvent = `
 CREATE TABLE IF NOT EXISTS BotEvent (
-	key           INTEGER PRIMARY KEY,
+	key           INTEGER NOT NULL,
 	schemaVersion INTEGER NOT NULL,
 	botID         TEXT    NOT NULL,
 	time          INTEGER NOT NULL,
-	blob          BLOB    NOT NULL
+	blob          BLOB    NOT NULL,
+	PRIMARY KEY(key DESC)
 ) STRICT;
 `
 
@@ -134,7 +135,7 @@ type botEventSQLBlob struct {
 	Dimensions      map[string][]string `json:"e"`
 	State           []byte              `json:"f"`
 	ExternalIP      string              `json:"g"`
-	TaskID          int                 `json:"h"`
+	TaskID          int64               `json:"h"`
 	QuarantinedMsg  string              `json:"i"`
 	MaintenanceMsg  string              `json:"j"`
 }

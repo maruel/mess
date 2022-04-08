@@ -7,62 +7,73 @@ import (
 	"github.com/maruel/mess/internal/model"
 )
 
+// Digest is a CAS reference.
 type Digest struct {
 	Hash string `json:"hash"`
 	Size int64  `json:"size_bytes"`
 }
 
+// ToDB converts the Digest to DB's format.
 func (d *Digest) ToDB(m *model.Digest) error {
 	m.Size = d.Size
 	_, err := hex.Decode(m.Hash[:], []byte(d.Hash))
 	return err
 }
 
+// FromDB converts the Digest from DB's format.
 func (d *Digest) FromDB(m *model.Digest) {
 	d.Size = m.Size
 	d.Hash = hex.EncodeToString(m.Hash[:])
 }
 
+// CIPDPackage is a LUCI CIPD package.
 type CIPDPackage struct {
 	PkgName string `json:"package_name"`
 	Version string `json:"version"`
 	Path    string `json:"path"`
 }
 
+// CacheEntry is a named cache entry.
 type CacheEntry struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 }
 
-// Store a reference to disk.
+// TaskOutput stores a task's output.
 type TaskOutput struct {
 	Size int64
 }
 
+// TasksCount is /tasks/count.
 type TasksCount struct {
 	Count int32 `json:"count"`
 	Now   Time  `json:"now"`
 }
 
+// TasksList is /tasks/list.
 type TasksList struct {
 	Cursor string       `json:"cursor"`
 	Items  []TaskResult `json:"items"`
 	Now    Time         `json:"now"`
 }
 
-type ContainmentType int
+// ContainmentType declares the type of process containment the bot shall do.
+type ContainmentType = model.ContainmentType
 
+// Valid ContainmentType.
 const (
-	ContainmentNone ContainmentType = iota
-	ContainmentAuto
-	ContainmentJobObject
+	ContainmentNone      = model.ContainmentNone
+	ContainmentAuto      = model.ContainmentAuto
+	ContainmentJobObject = model.ContainmentJobObject
 )
 
+// Containment declares the type of process containment the bot shall do.
 type Containment struct {
 	LowerPriority   bool
 	ContainmentType ContainmentType
 }
 
+// TaskProperties declares what the task runs.
 type TaskProperties struct {
 	Caches       []CacheEntry
 	Command      []string
@@ -82,20 +93,23 @@ type TaskProperties struct {
 	Containment  Containment
 }
 
+// TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
 	Properties      TaskProperties
 	Expiration      time.Duration
 	WaitForCapacity bool
 }
 
+// BuildToken is a LUCI Buildbucket token.
 type BuildToken struct {
 	BuildID         int64
 	Token           string
 	BuildbucketHost string
 }
 
+// TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
-	Key                 int64
+	Key                 model.TaskID
 	Created             time.Time
 	TaskSlices          []TaskSlice
 	Name                string
@@ -117,12 +131,15 @@ type TaskRequest struct {
 	//Expiration time.Time
 }
 
+// FromDB converts the model to the API.
 func (t *TaskRequest) FromDB(m *model.TaskRequest) {
 	panic("TODO")
 }
 
+// TaskState is the state of the task request.
 type TaskState int64
 
+// Valid TaskState.
 const (
 	Running TaskState = iota
 	Pending
@@ -135,13 +152,15 @@ const (
 	NoResource
 )
 
+// ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
 	Host       string
 	Invocation string
 }
 
+// TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
-	Key            int64
+	Key            model.TaskID
 	BotID          string
 	BotVersion     string
 	BotDimension   map[string][]string
@@ -172,6 +191,7 @@ type TaskResult struct {
 	// TODO(maruel): Stats.
 }
 
+// FromDB converts the model to the API.
 func (t *TaskResult) FromDB(m *model.TaskResult) {
 	panic("TODO")
 }

@@ -15,11 +15,13 @@ func CloudTime(t time.Time) Time {
 	return Time(t.UTC().Format("2006-01-02T15:04:05"))
 }
 
+// StringPair is a key value item.
 type StringPair struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
+// StringListPair is a key values item.
 type StringListPair struct {
 	Key    string   `json:"key"`
 	Values []string `json:"value"`

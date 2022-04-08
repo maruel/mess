@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Bot represents a bot as known by the server.
 type Bot struct {
 	Key             string              `json:"a"`
 	SchemaVersion   int                 `json:"b"`
@@ -15,7 +16,7 @@ type Bot struct {
 	Dimensions      map[string][]string `json:"g"`
 	State           []byte              `json:"h"`
 	ExternalIP      string              `json:"i"`
-	TaskID          int                 `json:"j"`
+	TaskID          int64               `json:"j"`
 	QuarantinedMsg  string              `json:"k"`
 	MaintenanceMsg  string              `json:"l"`
 }
@@ -87,12 +88,13 @@ func (b *botSQL) to(d *Bot) {
 // BLOB
 const schemaBot = `
 CREATE TABLE IF NOT EXISTS Bot (
-	key           TEXT    PRIMARY KEY,
+	key           TEXT    NOT NULL,
 	schemaVersion INTEGER NOT NULL,
 	created       INTEGER NOT NULL,
 	lastSeen      INTEGER NOT NULL,
 	version       TEXT,
-	blob          BLOB    NOT NULL
+	blob          BLOB    NOT NULL,
+	PRIMARY KEY(key ASC)
 ) STRICT;
 `
 
@@ -102,7 +104,7 @@ type botSQLBlob struct {
 	Dimensions      map[string][]string `json:"b"`
 	State           []byte              `json:"c"`
 	ExternalIP      string              `json:"d"`
-	TaskID          int                 `json:"e"`
+	TaskID          int64               `json:"e"`
 	QuarantinedMsg  string              `json:"f"`
 	MaintenanceMsg  string              `json:"g"`
 }

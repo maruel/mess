@@ -2,12 +2,11 @@ package messapi
 
 import (
 	"sort"
-	"strconv"
 
 	"github.com/maruel/mess/internal/model"
 )
 
-// BotsCount reports the bots count.
+// BotsCount is /bots/count.
 type BotsCount struct {
 	Now         Time  `json:"now"`
 	Count       int32 `json:"count"`
@@ -17,16 +16,18 @@ type BotsCount struct {
 	Busy        int32 `json:"busy"`
 }
 
+// BotsDimensions is /bots/dimensions.
+type BotsDimensions struct {
+	BotsDimensions []StringListPair `json:"bots_dimensions"`
+	Now            Time             `json:"ts"`
+}
+
+// BotsList is /bots/list.
 type BotsList struct {
 	Cursor       string `json:"cursor"`
 	Items        []Bot  `json:"items"`
 	Now          Time   `json:"now"`
 	DeathTimeout int    `json:"death_timeout"`
-}
-
-type BotsDimensions struct {
-	BotsDimensions []StringListPair `json:"bots_dimensions"`
-	Now            Time             `json:"ts"`
 }
 
 // Bot reports the bot state as known by the server.
@@ -40,7 +41,7 @@ type Bot struct {
 	LastSeen        Time             `json:"last_seen_ts"`
 	Quarantined     bool             `json:"quarantined"`
 	MaintenanceMsg  string           `json:"maintenance_msg"`
-	TaskID          string           `json:"task_id"`
+	TaskID          model.TaskID     `json:"task_id"`
 	TaskName        string           `json:"task_name"`
 	Version         string           `json:"version"`
 	// Encoded as json since it's an arbitrary dict.
@@ -53,29 +54,32 @@ type Bot struct {
 	// DEPRECATED: leased_indefinitely bool
 }
 
+// FromDB converts the model to the API.
 func (b *Bot) FromDB(m *model.Bot) {
 	b.BotID = m.Key
 	// b.Dimensions
-	// b.ExternalIP
-	// b.AuthenticatedAs
+	b.ExternalIP = m.ExternalIP
+	b.AuthenticatedAs = m.AuthenticatedAs
 	b.FirstSeen = CloudTime(m.Created)
 	// b.IsDead
 	b.LastSeen = CloudTime(m.LastSeen)
-	// b.Quarantined
-	// b.MaintenanceMsg
-	// b.TaskID
+	b.Quarantined = m.QuarantinedMsg != ""
+	b.MaintenanceMsg = m.MaintenanceMsg
+	b.TaskID = model.ToTaskID(m.TaskID)
 	// b.TaskName
 	b.Version = m.Version
-	// b.State
+	b.State = string(m.State)
 	// b.Deleted
 }
 
+// BotEvents is events that a bot produced.
 type BotEvents struct {
 	Cursor string     `json:"cursor"`
 	Items  []BotEvent `json:"items"`
 	Now    Time       `json:"now"`
 }
 
+// BotEvent is one event that a bot produced.
 type BotEvent struct {
 	Time            Time             `json:"ts"`
 	Event           string           `json:"event_type"`
@@ -87,9 +91,10 @@ type BotEvent struct {
 	Version         string           `json:"version"`
 	Quarantined     bool             `json:"quarantined"`
 	MaintenanceMsg  string           `json:"maintenance_msg"`
-	TaskID          string           `json:"task_id"`
+	TaskID          model.TaskID     `json:"task_id"`
 }
 
+// FromDB converts the model to the API.
 func (b *BotEvent) FromDB(m *model.BotEvent) {
 	b.Time = CloudTime(m.Time)
 	b.Event = m.Event
@@ -105,10 +110,10 @@ func (b *BotEvent) FromDB(m *model.BotEvent) {
 	b.Version = m.Version
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg
-	// TODO(maruel): internal ID to external ID.
-	b.TaskID = strconv.Itoa(m.TaskID)
+	b.TaskID = model.ToTaskID(m.TaskID)
 }
 
+// BotTasks is /bot/tasks
 type BotTasks struct {
 	Cursor string       `json:"cursor"`
 	Items  []TaskResult `json:"items"`

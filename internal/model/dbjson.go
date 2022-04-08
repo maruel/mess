@@ -3,11 +3,9 @@ package model
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -144,26 +142,7 @@ func (t *rawTables) BotEventGetSlice(id, cursor string, limit int, earliest, lat
 	return b, ""
 }
 
-func (t *rawTables) WriteOutput(key int64) (io.WriteCloser, error) {
-	p := filepath.Join("output", strconv.FormatInt(key, 10))
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	return f, err
-}
-
-func (t *rawTables) ReadOutput(key int64) (io.ReadCloser, error) {
-	p := filepath.Join("output", strconv.FormatInt(key, 10))
-	f, err := os.Open(p)
-	return f, err
-}
-
 func (t *rawTables) init() error {
-	if d, err := os.Stat("output"); err == nil {
-		if !d.IsDir() {
-			return errors.New("output is not a directory")
-		}
-	} else if err := os.Mkdir("output", 0755); err != nil {
-		return err
-	}
 	t.TasksRequest = map[int64]*TaskRequest{}
 	t.TasksResult = map[int64]*TaskResult{}
 	t.Bots = map[string]*Bot{}

@@ -26,7 +26,7 @@ func getHost(r *http.Request) string {
 	return r.Header.Get("X-Forwarded-Host")
 }
 
-// GetBotZIP return the swarming_bot.zip's hashed content.
+// GetBotVersion return the swarming_bot.zip's hashed content.
 func GetBotVersion(r *http.Request) string {
 	host := getHost(r)
 	mu.Lock()

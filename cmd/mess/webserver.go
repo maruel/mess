@@ -61,10 +61,6 @@ func (c *countingWriter) Unwrap() http.ResponseWriter {
 	return c.ResponseWriter
 }
 
-func (c *countingWriter) CloseNotify() <-chan bool {
-	return c.ResponseWriter.(http.CloseNotifier).CloseNotify()
-}
-
 func (c *countingWriter) Flush() {
 	c.ResponseWriter.(http.Flusher).Flush()
 }
@@ -190,8 +186,6 @@ func (s *server) rootUIPages(w http.ResponseWriter, r *http.Request) {
 // API helpers.
 
 var errUnknownAPI = errors.New("unknown API")
-
-type apiFunc func() interface{}
 
 type errorStatus struct {
 	status int

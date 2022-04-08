@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
 	Key            int64               `json:"a"`
 	SchemaVersion  int                 `json:"b"`
@@ -122,10 +123,11 @@ func (r *taskResultSQL) to(t *TaskResult) {
 // BLOB
 const schemaTaskResult = `
 CREATE TABLE IF NOT EXISTS TaskResult (
-	key           INTEGER PRIMARY KEY,
+	key           INTEGER NOT NULL,
 	schemaVersion INTEGER NOT NULL,
 	botID         TEXT NOT NULL,
-	blob          BLOB    NOT NULL
+	blob          BLOB    NOT NULL,
+	PRIMARY KEY(key DESC)
 ) STRICT;
 `
 
@@ -155,8 +157,10 @@ type taskResultSQLBlob struct {
 	DeadAfter      time.Time           `json:"v"`
 }
 
+// TaskState is the state of the task request.
 type TaskState int64
 
+// Valid TaskState.
 const (
 	Running TaskState = iota
 	Pending
@@ -169,12 +173,13 @@ const (
 	NoResource
 )
 
+// ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
 	Host       string `json:"a"`
 	Invocation string `json:"b"`
 }
 
-// Store a reference to disk.
+// TaskOutput stores the task's output.
 type TaskOutput struct {
 	Size int64 `json:"a"`
 }

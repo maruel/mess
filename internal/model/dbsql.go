@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	// Force the sqlite3 driver to be registered.
 	_ "github.com/mattn/go-sqlite3"
 )
 

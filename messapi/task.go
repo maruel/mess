@@ -68,10 +68,31 @@ type TasksListResponse struct {
 
 // TasksNewRequest is /tasks/new (POST).
 type TasksNewRequest struct {
+	//ExpirationSecs int64 `json:"expiration_secs"`
+	Name         string       `json:"name"`
+	ParentTaskID model.TaskID `json:"parent_task_id"`
+	Priority     int32        `json:"priority"`
+	//Properties TaskProperties `json:"properties"`
+	TaskSlices           []TaskSlice      `json:"task_slices"`
+	Tags                 []string         `json:"tags"`
+	User                 string           `json:"user"`
+	ServiceAccount       string           `json:"service_account"`
+	PubSubTopic          string           `json:"pubsub_topic"`
+	PubSubAuthToken      string           `json:"pubsub_auth_token"`
+	PubSubUserData       string           `json:"pubsub_userdata"`
+	EvaluateOnly         bool             `json:"evaluate_only"`
+	PoolTaskTemplate     PoolTaskTemplate `json:"pool_task_template"`
+	BotPingToleranceSecs int64            `json:"bot_ping_telerance_secs"`
+	RequestUUID          string           `json:"request_uuid"`
+	ResultDB             ResultDBCfg      `json:"resultdb"`
+	Realm                string           `json":realm"`
 }
 
 // TasksNewResponse is /tasks/new (POST).
 type TasksNewResponse struct {
+	Request TaskRequest  `json:"request"`
+	TaskID  model.TaskID `json:"task_id"`
+	Result  TaskResult   `json:"task_result"`
 }
 
 // TasksRequestsRequest is /tasks/requests (GET).
@@ -156,6 +177,25 @@ func (d *Digest) FromDB(m *model.Digest) {
 	d.Hash = hex.EncodeToString(m.Hash[:])
 }
 
+// CASReference is a reference to a RBE-CAS host and digest.
+type CASReference struct {
+	Host   string `json:"cas_instance"`
+	Digest Digest `json:"digest"`
+}
+
+// CIPDInput is a LUCI CIPD input reference.
+type CIPDInput struct {
+	Server        string        `json:"server"`
+	ClientPackage CIPDPackage   `json:"client_package"`
+	Packages      []CIPDPackage `json:"packages"`
+}
+
+// CIPDPins is a LUCI CIPD resolved reference.
+type CIPDPins struct {
+	ClientPkg CIPDPackage `json:"client_package"`
+	Pkgs      CIPDPackage `json:"packages"`
+}
+
 // CIPDPackage is a LUCI CIPD package.
 type CIPDPackage struct {
 	PkgName string `json:"package_name"`
@@ -163,15 +203,10 @@ type CIPDPackage struct {
 	Path    string `json:"path"`
 }
 
-// CacheEntry is a named cache entry.
-type CacheEntry struct {
+// Cache is a named cache entry.
+type Cache struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
-}
-
-// TaskOutput stores a task's output.
-type TaskOutput struct {
-	Size int64
 }
 
 // ContainmentType declares the type of process containment the bot shall do.
@@ -186,72 +221,87 @@ const (
 
 // Containment declares the type of process containment the bot shall do.
 type Containment struct {
-	LowerPriority   bool
-	ContainmentType ContainmentType
+	ContainmentType ContainmentType `json:"containment_type"`
 }
 
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
-	Caches       []CacheEntry
-	Command      []string
-	RelativeWD   string
-	CASHost      string
-	Input        Digest
-	CIPDHost     string
-	CIPDPackages []CIPDPackage
-	Dimensions   map[string]string
-	Env          map[string]string
-	EnvPrefixes  map[string]string
-	HardTimeout  time.Duration
-	GracePeriod  time.Duration
-	IOTimeout    time.Duration
-	Idempotent   bool
-	Outputs      []string
-	Containment  Containment
+	Caches       []Cache          `json:"caches"`
+	CIPDInput    CIPDInput        `json:"cipd_input"`
+	Command      []string         `json:"command"`
+	RelativeWD   string           `json:"relative_cwd"`
+	Dimensions   []StringPair     `json:"dimensions"`
+	Env          []StringPair     `json:"env"`
+	EnvPrefixes  []StringListPair `json:"env_prefixes"`
+	HardTimeout  int64            `json:"execution_timeout_secs"`
+	GracePeriod  int64            `json:"grace_period_secs"`
+	Idempotent   bool             `json:"idempotent"`
+	CASInputRoot CASReference     `json:"cas_input_root"`
+	IOTimeout    int64            `json:"io_timeout_secs"`
+	Outputs      []string         `json:"outputs"`
+	SecretBytes  []byte           `json:"secret_bytes"`
+	Containment  Containment      `json:"containment"`
 }
 
 // TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
-	Properties      TaskProperties
-	Expiration      time.Duration
-	WaitForCapacity bool
+	Properties      TaskProperties `json:"properties"`
+	ExpirationSecs  int64          `json:"expiration_secs"`
+	WaitForCapacity bool           `json:"wait_for_capacity"`
 }
 
+/* REMOVE
 // BuildToken is a LUCI Buildbucket token.
 type BuildToken struct {
 	BuildID         int64
 	Token           string
 	BuildbucketHost string
 }
+*/
+
+// PoolTaskTemplate determines the kind of template to use.
+type PoolTaskTemplate int32
+
+// Valid PoolTaskTemplate.
+const (
+	PoolTaskTemplateAuto PoolTaskTemplate = iota
+	PoolTaskTemplateCanaryPrefer
+	PoolTaskTemplateCanaryNever
+	PoolTaskTemplateSkip
+)
+
+// ResultDBCfg is used in TasksNewRequest.
+type ResultDBCfg struct {
+	Enable bool `json:"enable"`
+}
 
 // TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
-	Key                 model.TaskID
-	Created             time.Time
-	TaskSlices          []TaskSlice
-	Name                string
-	Authenticated       string
-	User                string
-	ServiceAccount      string
-	Priority            int32
-	Tags                []string
-	ManualTags          []string
-	ParentTask          int64
-	PubSubTopic         string
-	PubSubAuthToken     string
-	PubSubUserData      string
-	ResultDBUpdateToken string
-	Realm               string
-	ResultDB            bool
-	BuildToken          BuildToken
-	//BotPingTolerance time.Duration
-	//Expiration time.Time
+	//ExpirationSecs int64 `json:"expiration_secs"`
+	Name         string       `json:"name"`
+	TaskID       model.TaskID `json:"task_id"`
+	ParentTaskID model.TaskID `json:"parent_task_id"`
+	Priority     int32        `json:"priority"`
+	//Properties TaskProperties `json:"properties"`
+	Tags                 []string    `json:"tags"`
+	Created              Time        `json:"created_ts"`
+	User                 string      `json:"user"`
+	Authenticated        string      `json:"authenticated"`
+	TaskSlices           []TaskSlice `json:"task_slices"`
+	ServiceAccount       string      `json:"service_account"`
+	Realm                string      `json":realm"`
+	ResultDB             ResultDBCfg `json:"resultdb"`
+	PubSubTopic          string      `json:"pubsub_topic"`
+	PubSubUserData       string      `json:"pubsub_userdata"`
+	BotPingToleranceSecs int64       `json:"bot_ping_telerance_secs"`
 }
 
 // FromDB converts the model to the API.
 func (t *TaskRequest) FromDB(m *model.TaskRequest) {
 	panic("TODO")
 }
+
+//
 
 // TaskState is the state of the task request.
 type TaskState int64
@@ -271,47 +321,78 @@ const (
 
 // ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
-	Host       string
-	Invocation string
+	Host       string `json:"hostname"`
+	Invocation string `json:"invocation"`
+}
+
+// OperationStats is the statistic for one operation.
+type OperationStats struct {
+	Duration float64 `json:"duration"`
+}
+
+// CASOperationStats is RBE-CAS operation.
+type CASOperationStats struct {
+	Duration        float64 `json:"duration"`
+	InitialNumItems int64   `json:"initial_number_items"`
+	InitialSize     int64   `json:"initial_size"`
+	ItemsCold       []byte  `json:"items_cold"` // zlib deflated varints.
+	ItemsHot        []byte  `json:"items_hot"`
+	NumItemsCold    int     `json:"num_items_cold"`
+	NumItemsHot     int     `json:"num_items_hot"`
+}
+
+// TaskPerfStats is the performance stats for a task.
+type TaskPerfStats struct {
+	BotOverhead          OperationStats    `json:"bot_overhead"`
+	CASDownload          CASOperationStats `json:"isolated_download"`
+	CASUpload            CASOperationStats `json:"isolated_upload"`
+	PkgInstallation      OperationStats    `json:"package_installation"`
+	CacheTrim            OperationStats    `json:"cache_trim"`
+	NamnedCachesInstall  OperationStats    `json:"namned_caches_install"`
+	NamedCachesUninstall OperationStats    `json:"named_caches_uninstall"`
+	Cleanup              OperationStats    `json:"cleanup"`
 }
 
 // TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
-	Key            model.TaskID
-	BotID          string
-	BotVersion     string
-	BotDimension   map[string][]string
-	BotIdleSince   time.Duration
-	ServerVersions []string
-	TaskSlice      int64
-	DedupedFrom    int64
-	PropertiesHash string
-
-	TaskOutput TaskOutput
-	ExitCode   int64
-	State      TaskState
-	Children   []int64
-	Output     Digest
-	CIPDPins   []CIPDPackage
-	ResultDB   ResultDB
-
-	Duration  time.Duration
-	Started   time.Time
-	Completed time.Time
-	Abandoned time.Time
-	Modified  time.Time
-	Cost      float64
-
-	// Internal flags.
-	Killing   bool
-	DeadAfter time.Time
-	// TODO(maruel): Stats.
+	Abandoned        Time             `json:"abandoned_ts"`
+	BotDimension     []StringListPair `json:"bot_dimensions"`
+	BotID            string           `json:"bot_id"`
+	BotIdleSince     Time             `json:"bot_idle_since_ts"`
+	BotVersion       string           `json:"bot_version"`
+	Children         []model.TaskID   `json:"children_task_ids"`
+	Completed        Time             `json:"completed_ts"`
+	CostSavedUSD     float64          `json:"cost_saved_usd"`
+	Created          Time             `json:"created_ts"`
+	DedupedFrom      model.TaskID     `json:"deduped_from"`
+	Duration         float64          `json:"duration"`
+	ExitCode         int32            `json:"exit_code"`
+	Failure          bool             `json:"failure"`
+	InternalFailure  bool             `json:"internal_failure"`
+	Modified         Time             `json:"modified_ts"`
+	CASOutput        CASReference     `json:"cas_output_root"`
+	ServerVersions   []string         `json:"server_verions"`
+	Started          Time             `json:"started_ts"`
+	State            TaskState        `json:"state"`
+	TaskID           model.TaskID     `json:"task_id"`
+	TryNumber        int32            `json:"try_number"`
+	CostsUSD         []float64        `json:"costs_usd"`
+	Name             string           `json:"name"`
+	Tags             []string         `json:"tags"`
+	User             string           `json:"user"`
+	Perf             TaskPerfStats    `json:"performance_stats"`
+	CIPDPIns         CIPDPins         `json:"cipd_pins"`
+	RunID            model.TaskID     `json:"run_id"`
+	CurrentTaskSlice int32            `json:"current_task_slice"`
+	ResultDB         ResultDB         `json:"resultdb_info"`
 }
 
 // FromDB converts the model to the API.
 func (t *TaskResult) FromDB(m *model.TaskResult) {
 	panic("TODO")
 }
+
+//
 
 // TaskStateQuery is TODO. Default is ALL
 type TaskStateQuery = string

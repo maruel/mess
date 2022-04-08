@@ -86,7 +86,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bot := model.Bot{Key: id, Create: now}
+	bot := model.Bot{Key: id, Created: now}
 	s.tables.BotGet(id, &bot)
 	bot.LastSeen = now
 	bot.Version = br.Version
@@ -94,7 +94,8 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 
 	// API URLs.
 	if r.URL.Path == "/handshake" {
-		bot.AddEvent(now, "handshake", "")
+		e := model.BotEvent{}
+		bot.AddEvent(now, "handshake", "", &e)
 
 		data := botHandshake{
 			BotVersion:         internal.GetBotVersion(r),
@@ -119,7 +120,8 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/event" {
-		bot.AddEvent(now, "event", "TODO")
+		e := model.BotEvent{}
+		bot.AddEvent(now, "event", "TODO", &e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return
@@ -143,13 +145,15 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/task_update" {
-		bot.AddEvent(now, "task_update", "TODO")
+		e := model.BotEvent{}
+		bot.AddEvent(now, "task_update", "TODO", &e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/task_error" {
-		bot.AddEvent(now, "task_error", "TODO")
+		e := model.BotEvent{}
+		bot.AddEvent(now, "task_error", "TODO", &e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
 		return

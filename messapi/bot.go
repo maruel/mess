@@ -57,7 +57,7 @@ func (b *Bot) FromDB(m *model.Bot) {
 	// b.Dimensions
 	// b.ExternalIP
 	// b.AuthenticatedAs
-	b.FirstSeen = CloudTime(m.Create)
+	b.FirstSeen = CloudTime(m.Created)
 	// b.IsDead
 	b.LastSeen = CloudTime(m.LastSeen)
 	// b.Quarantined
@@ -91,20 +91,20 @@ type BotEvent struct {
 
 func (b *BotEvent) FromDB(m *model.BotEvent) {
 	b.Time = CloudTime(m.Time)
-	b.Event = m.Blob.Event
-	b.Message = m.Blob.Message
-	b.Dimensions = make([]StringListPair, 0, len(m.Blob.Dimensions))
-	for k, v := range m.Blob.Dimensions {
+	b.Event = m.Event
+	b.Message = m.Message
+	b.Dimensions = make([]StringListPair, 0, len(m.Dimensions))
+	for k, v := range m.Dimensions {
 		b.Dimensions = append(b.Dimensions, StringListPair{Key: k, Values: v})
 	}
 	sort.Slice(b.Dimensions, func(i, j int) bool { return b.Dimensions[i].Key < b.Dimensions[j].Key })
-	b.State = m.Blob.State
-	b.ExternalIP = m.Blob.ExternalIP
-	b.AuthenticatedAs = m.Blob.AuthenticatedAs
-	b.Version = m.Blob.Version
-	b.Quarantined = m.Blob.QuarantinedMsg != ""
-	b.MaintenanceMsg = m.Blob.MaintenanceMsg
-	b.TaskID = m.Blob.TaskID
+	b.State = m.State
+	b.ExternalIP = m.ExternalIP
+	b.AuthenticatedAs = m.AuthenticatedAs
+	b.Version = m.Version
+	b.Quarantined = m.QuarantinedMsg != ""
+	b.MaintenanceMsg = m.MaintenanceMsg
+	b.TaskID = m.TaskID
 }
 
 type BotTasks struct {

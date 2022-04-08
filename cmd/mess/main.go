@@ -56,7 +56,7 @@ func mainImpl() error {
 		fmt.Printf("It should look like 1111-aaaaaaaaaaa.apps.googleusercontent.com\n")
 		fmt.Printf("\n")
 	}
-	d, err := model.NewDBJSON()
+	d, err := model.NewDBJSON("db.json.zst")
 	if err != nil {
 		return err
 	}

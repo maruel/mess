@@ -99,10 +99,12 @@ func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
 				var events []messapi.BotEvent
 				bot := model.Bot{}
 				s.tables.BotGet(id, &bot)
-				events = make([]messapi.BotEvent, len(bot.Blob.Events))
-				for i, be := range bot.Blob.Events {
-					events[i].FromDB(be)
-				}
+				/*
+					events = make([]messapi.BotEvent, len(bot.Events))
+					for i, be := range bot.Events {
+						events[i].FromDB(be)
+					}
+				*/
 				sendJSONResponse(w, messapi.BotEvents{
 					Cursor: "",
 					Items:  events,

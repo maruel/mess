@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -114,6 +115,9 @@ func wrapLog(h http.Handler) http.Handler {
 				} else {
 					line = l.Error().Str("recovered", fmt.Sprintf("%v", v))
 				}
+				// TODO(maruel): Use panicparse.
+				// TODO(maruel): Send an monitoring alert.
+				line = line.Str("stack", string(debug.Stack()))
 			} else {
 				line = l.Info()
 			}

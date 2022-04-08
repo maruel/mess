@@ -96,17 +96,13 @@ func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
 			switch n[1] {
 			case "delete":
 			case "events":
-				var events []messapi.BotEvent
-				bot := model.Bot{}
-				s.tables.BotGet(id, &bot)
-				/*
-					events = make([]messapi.BotEvent, len(bot.Events))
-					for i, be := range bot.Events {
-						events[i].FromDB(be)
-					}
-				*/
+				all, cursor := s.tables.BotEventGetSlice(id, "", 100, time.Now(), time.Now())
+				events := make([]messapi.BotEvent, len(all))
+				for i := range all {
+					events[i].FromDB(&all[i])
+				}
 				sendJSONResponse(w, messapi.BotEvents{
-					Cursor: "",
+					Cursor: cursor,
 					Items:  events,
 					Now:    cloudNow,
 				})

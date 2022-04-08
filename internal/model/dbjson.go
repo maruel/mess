@@ -84,7 +84,10 @@ func (t *rawTables) TaskResultCount() int {
 func (t *rawTables) BotGet(id string, b *Bot) {
 	t.mu.Lock()
 	// TODO(maruel): Deep copy slices. :(
-	*b = *t.Bots[id]
+	d := t.Bots[id]
+	if d != nil {
+		*b = *d
+	}
 	t.mu.Unlock()
 }
 

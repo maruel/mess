@@ -90,6 +90,12 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	s.tables.BotGet(id, &bot)
 	bot.LastSeen = now
 	bot.Version = br.Version
+	bot.Dimensions = br.Dimensions
+	if s, err := json.Marshal(br.State); err == nil {
+		bot.State = s
+	} else {
+		bot.State, _ = json.Marshal(map[string]string{"quarantined": "invalid state: " + err.Error()})
+	}
 	s.tables.BotSet(&bot)
 
 	// API URLs.
@@ -122,7 +128,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/event" {
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "TODO", "")
+		e.InitFrom(&bot, now, br.Event, br.Message)
 		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
@@ -148,7 +154,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/task_update" {
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "task_update", "TODO")
+		e.InitFrom(&bot, now, "task_update", br.Message)
 		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)
@@ -156,7 +162,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/task_error" {
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "task_error", "TODO")
+		e.InitFrom(&bot, now, "task_error", br.Message)
 		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
 		s.tables.BotSet(&bot)

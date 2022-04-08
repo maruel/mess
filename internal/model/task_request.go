@@ -42,7 +42,7 @@ func ToTaskID(key int64) TaskID {
 	// Swarming uses the last nibbles:
 	// - schema version, used 0 and 1. mess uses 2.
 	// - retries, used 0, 1 and 2. mess uses 0
-	if key < 0 {
+	if key <= 0 {
 		return ""
 	}
 	return TaskID(strconv.FormatInt(key, 10) + "20")

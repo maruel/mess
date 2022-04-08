@@ -33,11 +33,16 @@ func TestTaskRequestJSON(t *testing.T) {
 		t.Fatal(l)
 	}
 	got := TaskRequest{}
-	d.TaskRequestGet(2, &got)
+	d.TaskRequestGet(1, &got)
+	missing := TaskRequest{}
+	d.TaskRequestGet(2, &missing)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(want, &got); diff != "" {
+		t.Fatalf("(want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(&TaskRequest{}, &missing); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 }
@@ -64,17 +69,23 @@ func TestTaskRequestSQL(t *testing.T) {
 		t.Fatal(l)
 	}
 	got := TaskRequest{}
-	d.TaskRequestGet(2, &got)
+	d.TaskRequestGet(1, &got)
+	missing := TaskRequest{}
+	d.TaskRequestGet(2, &missing)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(want, &got); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
+	if diff := cmp.Diff(&TaskRequest{}, &missing); diff != "" {
+		t.Fatalf("(want +got):\n%s", diff)
+	}
 }
 
 func TestTaskRequestNonZero(t *testing.T) {
 	r := getTaskRequest()
+	r.Key = 2
 	if err := isNonZero("", reflect.ValueOf(r)); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +98,7 @@ func TestTaskRequestNonZero(t *testing.T) {
 func getTaskRequest() *TaskRequest {
 	r := &TaskRequest{
 		SchemaVersion: 1,
-		Key:           2,
+		Key:           0,
 		Created:       time.Date(2020, 3, 13, 10, 9, 8, 7000, time.UTC),
 		Priority:      3,
 		ParentTask:    4,

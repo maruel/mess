@@ -2,6 +2,7 @@ package messapi
 
 import (
 	"sort"
+	"time"
 
 	"github.com/maruel/mess/internal/model"
 )
@@ -57,11 +58,19 @@ type Bot struct {
 // FromDB converts the model to the API.
 func (b *Bot) FromDB(m *model.Bot) {
 	b.BotID = m.Key
-	// b.Dimensions
+	b.Dimensions = make([]StringListPair, len(m.Dimensions))
+	i := 0
+	for k, v := range m.Dimensions {
+		b.Dimensions[i].Key = k
+		b.Dimensions[i].Values = v
+		i++
+	}
+	sort.Slice(b.Dimensions, func(i, j int) bool { return b.Dimensions[i].Key < b.Dimensions[j].Key })
 	b.ExternalIP = m.ExternalIP
 	b.AuthenticatedAs = m.AuthenticatedAs
 	b.FirstSeen = CloudTime(m.Created)
-	// b.IsDead
+	// TODO(maruel): timer.
+	b.IsDead = time.Since(m.LastSeen) > 10*time.Minute
 	b.LastSeen = CloudTime(m.LastSeen)
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg

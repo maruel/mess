@@ -24,18 +24,26 @@ type rawTables struct {
 
 	Bots map[string]*Bot
 
-	BotEvents map[string][]*BotEvent
+	BotEvents      map[string][]*BotEvent
+	nextBotEventID int64
 }
 
 func (t *rawTables) TaskRequestGet(id int64, r *TaskRequest) {
 	// No need for deep copy since TaskRequest are immutable.
 	t.mu.Lock()
-	*r = *t.TasksRequest[id]
+	d := t.TasksRequest[id]
+	if d != nil {
+		*r = *d
+	}
 	t.mu.Unlock()
 }
 
 func (t *rawTables) TaskRequestAdd(r *TaskRequest) {
+	if r.Key != 0 {
+		panic("do not set key")
+	}
 	t.mu.Lock()
+	r.Key = int64(len(t.TasksRequest)) + 1
 	if t.TasksRequest[r.Key] != nil {
 		panic("task requests are immutable")
 	}
@@ -127,7 +135,12 @@ func (t *rawTables) BotGetSlice(cursor string, limit int) ([]Bot, string) {
 }
 
 func (t *rawTables) BotEventAdd(e *BotEvent) {
+	if e.Key != 0 {
+		panic("do not set key")
+	}
 	t.mu.Lock()
+	t.nextBotEventID++
+	e.Key = t.nextBotEventID
 	t.BotEvents[e.BotID] = append(t.BotEvents[e.BotID], e)
 	t.mu.Unlock()
 }
@@ -238,6 +251,10 @@ func (j *jsonDriver) loadFrom(r io.Reader) error {
 	j.rawTables.mu.Lock()
 	if err := d.Decode(&j.rawTables); err != nil {
 		return err
+	}
+	j.nextBotEventID = 0
+	for _, val := range j.BotEvents {
+		j.nextBotEventID += int64(len(val))
 	}
 	j.rawTables.mu.Unlock()
 	// TODO(maruel): Validate.

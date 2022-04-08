@@ -56,7 +56,9 @@ func mainImpl() error {
 		fmt.Printf("It should look like 1111-aaaaaaaaaaa.apps.googleusercontent.com\n")
 		fmt.Printf("\n")
 	}
-	d, err := model.NewDBJSON("db.json.zst")
+	// Use one of sqlite or json DB backend.
+	d, err := model.NewDBSqlite3("mess.db")
+	//d, err := model.NewDBJSON("db.json.zst")
 	if err != nil {
 		return err
 	}

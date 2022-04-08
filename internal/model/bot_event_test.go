@@ -15,20 +15,23 @@ func TestBotEventJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := getBotEvent()
-	d.BotEventAdd(want)
+	want1 := getBotEvent()
+	d.BotEventAdd(want1)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	d, err = NewDBJSON(p)
-	if err != nil {
+
+	if d, err = NewDBJSON(p); err != nil {
 		t.Fatal(err)
 	}
+	want2 := getBotEvent()
+	want2.Message = "message 2"
+	d.BotEventAdd(want2)
 	all, cursor := d.BotEventGetSlice("bot1", "", 100, time.Now(), time.Now())
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff([]BotEvent{*want}, all); diff != "" {
+	if diff := cmp.Diff([]BotEvent{*want1, *want2}, all); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 	if cursor != "" {
@@ -42,20 +45,23 @@ func TestBotEventSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := getBotEvent()
-	d.BotEventAdd(want)
+	want1 := getBotEvent()
+	d.BotEventAdd(want1)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	d, err = NewDBSqlite3(p)
-	if err != nil {
+
+	if d, err = NewDBSqlite3(p); err != nil {
 		t.Fatal(err)
 	}
+	want2 := getBotEvent()
+	want2.Message = "message 2"
+	d.BotEventAdd(want2)
 	all, cursor := d.BotEventGetSlice("bot1", "", 100, time.Now(), time.Now())
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff([]BotEvent{*want}, all); diff != "" {
+	if diff := cmp.Diff([]BotEvent{*want1, *want2}, all); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 	if cursor != "" {
@@ -84,6 +90,5 @@ func getBotEvent() *BotEvent {
 	e := &BotEvent{}
 	now := time.Date(2020, 3, 13, 10, 9, 8, 7000, time.UTC)
 	e.InitFrom(b, now, "event1", "msg1")
-	e.Key = 2
 	return e
 }

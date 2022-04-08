@@ -19,6 +19,7 @@ type Bot struct {
 	TaskID          int64               `json:"j"`
 	QuarantinedMsg  string              `json:"k"`
 	MaintenanceMsg  string              `json:"l"`
+	// TODO(maruel): Deleted bool
 }
 
 type botSQL struct {

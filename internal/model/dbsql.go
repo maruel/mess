@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"sync"
 	"time"
 
 	// Force the sqlite3 driver to be registered.
@@ -9,7 +10,10 @@ import (
 )
 
 type sqlDB struct {
-	db *sql.DB
+	db             *sql.DB
+	mu             sync.Mutex
+	lastTaskID     int64
+	lastBotEventID int64
 }
 
 // NewDBSqlite3 creates or opens a sqlite3 DB.
@@ -36,6 +40,8 @@ func NewDBSqlite3(p string) (DB, error) {
 			return nil, err
 		}
 	}
+	s.db.QueryRow("SELECT key FROM TaskRequest ORDER BY key DESC").Scan(&s.lastTaskID)
+	s.db.QueryRow("SELECT key FROM BotEvent ORDER BY key DESC").Scan(&s.lastBotEventID)
 	return s, nil
 }
 
@@ -65,8 +71,16 @@ func (s *sqlDB) TaskRequestGet(id int64, r *TaskRequest) {
 }
 
 func (s *sqlDB) TaskRequestAdd(r *TaskRequest) {
+	if r.Key != 0 {
+		panic("do not set key")
+	}
 	r2 := taskRequestSQL{}
 	r2.from(r)
+	s.mu.Lock()
+	s.lastTaskID++
+	r2.key = s.lastTaskID
+	r.Key = r2.key
+	s.mu.Unlock()
 	stmt := "INSERT INTO TaskRequest (key, schemaVersion, created, priority, parentTask, tags, blob) VALUES ($1, $2, $3, $4, $5, $6, $7)"
 	if _, err := s.db.Exec(stmt, r2.fields()...); err != nil {
 		// TODO(maruel): Surface error? Delete entity?
@@ -185,8 +199,16 @@ func (s *sqlDB) BotGetSlice(cursor string, limit int) ([]Bot, string) {
 }
 
 func (s *sqlDB) BotEventAdd(e *BotEvent) {
+	if e.Key != 0 {
+		panic("do not set key")
+	}
 	e2 := botEventSQL{}
 	e2.from(e)
+	s.mu.Lock()
+	s.lastBotEventID++
+	e2.key = s.lastBotEventID
+	e.Key = e2.key
+	s.mu.Unlock()
 	stmt := "INSERT INTO BotEvent (key, schemaVersion, botID, time, blob) VALUES ($1, $2, $3, $4, $5)"
 	if _, err := s.db.Exec(stmt, e2.fields()...); err != nil {
 		// TODO(maruel): Surface error? Delete entity?

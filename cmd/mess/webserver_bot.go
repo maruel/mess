@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/maruel/mess/internal"
 	"github.com/maruel/mess/internal/model"
 	"github.com/maruel/mess/messapi"
+	"github.com/rs/zerolog/log"
 )
 
 func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	j.DisallowUnknownFields()
 	j.UseNumber()
 	if err = j.Decode(&br); err != nil {
-		log.Printf("Failed to decode: %s", raw)
+		log.Ctx(r.Context()).Error().Str("err", err.Error()).Msg("failed to decode bot request")
 		sendJSONResponse(w, errorStatus{status: 400, err: err})
 		return
 	}
@@ -91,6 +91,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	bot.LastSeen = now
 	bot.Version = br.Version
 	bot.Dimensions = br.Dimensions
+	bot.ExternalIP = getRemoteIP(r)
 	if s, err := json.Marshal(br.State); err == nil {
 		bot.State = s
 	} else {
@@ -168,6 +169,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		s.tables.BotSet(&bot)
 		return
 	}
+	log.Ctx(r.Context()).Error().Msg("Unknown bot request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
@@ -303,4 +305,18 @@ type botPollServiceAccounts struct {
 
 	System string `json:"system"`
 	Task   string `json:"task"`
+}
+
+func getRemoteIP(r *http.Request) string {
+	//if s := r.Header.Get("Forwarded"); s != "" {
+	//	return s
+	//}
+	if s := r.Header.Get("X-Forwarded-IP"); s != "" {
+		return s
+	}
+	if s := r.Header.Get("X-Forwarded-For"); s != "" {
+		return s
+	}
+	return r.RemoteAddr
+
 }

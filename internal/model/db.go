@@ -15,19 +15,20 @@ type Tables interface {
 	// TaskRequestAdd adds a new TaskRequest. It is immutable so it is an error
 	// to add two TaskRequest with the same key.
 	TaskRequestAdd(r *TaskRequest)
-	TaskRequestCount() int
+	TaskRequestCount() int64
+	TaskRequestSlice(cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string)
 
 	TaskResultGet(id int64, r *TaskResult)
 	TaskResultSet(r *TaskResult)
-	TaskResultCount() int
+	TaskResultCount() int64
 
 	BotGet(id string, b *Bot)
 	BotSet(b *Bot)
-	BotCount() int
-	BotGetSlice(cursor string, limit int) ([]Bot, string)
+	BotCount() int64
+	BotGetSlice(cursor string, limit int64) ([]Bot, string)
 
 	BotEventAdd(e *BotEvent)
-	BotEventGetSlice(id, cursor string, limit int, earliest, latest time.Time) ([]BotEvent, string)
+	BotEventGetSlice(id, cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string)
 }
 
 // DB is a database backend.

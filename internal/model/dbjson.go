@@ -54,11 +54,15 @@ func (t *rawTables) TaskRequestAdd(r *TaskRequest) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) TaskRequestCount() int {
+func (t *rawTables) TaskRequestCount() int64 {
 	t.mu.Lock()
 	l := len(t.TasksRequest)
 	t.mu.Unlock()
-	return l
+	return int64(l)
+}
+
+func (t *rawTables) TaskRequestSlice(cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
+	panic("todo")
 }
 
 func (t *rawTables) TaskResultGet(id int64, r *TaskResult) {
@@ -82,11 +86,11 @@ func (t *rawTables) TaskResultSet(r *TaskResult) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) TaskResultCount() int {
+func (t *rawTables) TaskResultCount() int64 {
 	t.mu.Lock()
 	l := len(t.TasksResult)
 	t.mu.Unlock()
-	return l
+	return int64(l)
 }
 
 func (t *rawTables) BotGet(id string, b *Bot) {
@@ -113,14 +117,14 @@ func (t *rawTables) BotSet(b *Bot) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) BotCount() int {
+func (t *rawTables) BotCount() int64 {
 	t.mu.Lock()
 	l := len(t.Bots)
 	t.mu.Unlock()
-	return l
+	return int64(l)
 }
 
-func (t *rawTables) BotGetSlice(cursor string, limit int) ([]Bot, string) {
+func (t *rawTables) BotGetSlice(cursor string, limit int64) ([]Bot, string) {
 	// TODO(maruel): Implement cursor and limit.
 	t.mu.Lock()
 	b := make([]Bot, len(t.Bots))
@@ -145,7 +149,7 @@ func (t *rawTables) BotEventAdd(e *BotEvent) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) BotEventGetSlice(id, cursor string, limit int, earliest, latest time.Time) ([]BotEvent, string) {
+func (t *rawTables) BotEventGetSlice(id, cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
 	// TODO(maruel): Implement cursor and limit.
 	t.mu.Lock()
 	be := t.BotEvents[id]

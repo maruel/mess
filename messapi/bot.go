@@ -7,8 +7,15 @@ import (
 	"github.com/maruel/mess/internal/model"
 )
 
-// BotsCount is /bots/count.
-type BotsCount struct {
+// BotsCountRequest is /bots/count (GET).
+type BotsCountRequest struct {
+	// Dimensions must be a list of 'key:value' strings to filter the returned
+	// list of bots on.
+	Dimensions []string
+}
+
+// BotsCountResponse is /bots/count (GET).
+type BotsCountResponse struct {
 	Now         Time  `json:"now"`
 	Count       int32 `json:"count"`
 	Quarantined int32 `json:"quarantined"`
@@ -17,19 +24,85 @@ type BotsCount struct {
 	Busy        int32 `json:"busy"`
 }
 
-// BotsDimensions is /bots/dimensions.
-type BotsDimensions struct {
+// BotsDimensionsRequest is /bots/dimensions (GET).
+type BotsDimensionsRequest struct {
+	Pool []string
+}
+
+// BotsDimensionsResponse is /bots/dimensions (GET).
+type BotsDimensionsResponse struct {
 	BotsDimensions []StringListPair `json:"bots_dimensions"`
 	Now            Time             `json:"ts"`
 }
 
-// BotsList is /bots/list.
-type BotsList struct {
+// BotsListRequest is /bots/list (GET).
+type BotsListRequest struct {
+	Limit  int64
+	Cursor string
+	// Dimensions must be a list of 'key:value' strings to filter the returned
+	// list of bots on.
+	Dimensions    []string
+	Quarantined   ThreeState
+	InMaintenance ThreeState
+	IsDead        ThreeState
+	IsBusy        ThreeState
+}
+
+// BotsListResponse is /bots/list (GET).
+type BotsListResponse struct {
 	Cursor       string `json:"cursor"`
 	Items        []Bot  `json:"items"`
 	Now          Time   `json:"now"`
-	DeathTimeout int    `json:"death_timeout"`
+	DeathTimeout int64  `json:"death_timeout"`
 }
+
+// BotDeleteResponse is /bot/<id>/delete (POST).
+type BotDeleteResponse struct {
+	Deleted bool `json:"deleted"`
+}
+
+// BotEventsRequest is /bot/<id>/events (GET).
+type BotEventsRequest struct {
+	Limit  int64
+	Cursor string
+	End    time.Time
+	Start  time.Time
+}
+
+// BotEventsResponse is /bot/<id>/events (GET).
+type BotEventsResponse struct {
+	Cursor string     `json:"cursor"`
+	Items  []BotEvent `json:"items"`
+	Now    Time       `json:"now"`
+}
+
+// BotGetResponse is /bot/<id>/get (GET).
+type BotGetResponse = Bot
+
+// BotTasksRequest is /bot/<id>/tasks (GET).
+type BotTasksRequest struct {
+	Limit                   int64
+	Cursor                  string
+	End                     time.Time
+	Start                   time.Time
+	State                   string // TaskStateQuery default=ALL
+	Sort                    string
+	IncludePerformanceStats bool
+}
+
+// BotTasksResponse is /bot/<id>/tasks (GET).
+type BotTasksResponse struct {
+	Cursor string       `json:"cursor"`
+	Items  []TaskResult `json:"items"`
+	Now    Time         `json:"now"`
+}
+
+// BotTerminateResponse is /bot/<id>/terminate (POST).
+type BotTerminateResponse struct {
+	TaskID model.TaskID `json:"task_id"`
+}
+
+//
 
 // Bot reports the bot state as known by the server.
 type Bot struct {
@@ -120,11 +193,4 @@ func (b *BotEvent) FromDB(m *model.BotEvent) {
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg
 	b.TaskID = model.ToTaskID(m.TaskID)
-}
-
-// BotTasks is /bot/tasks
-type BotTasks struct {
-	Cursor string       `json:"cursor"`
-	Items  []TaskResult `json:"items"`
-	Now    Time         `json:"now"`
 }

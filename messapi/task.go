@@ -7,6 +7,136 @@ import (
 	"github.com/maruel/mess/internal/model"
 )
 
+// TasksCancelRequest is /tasks/cancel (POST).
+type TasksCancelRequest struct {
+	Tags        []string `json:"tags"`
+	Cursor      string   `json:"cursor"`
+	Limit       int64    `json:"limit"`
+	KillRunning bool     `json:"kill_running"`
+	End         float64  `json:"end"`
+}
+
+// TasksCancelResponse is /tasks/cancel (POST).
+type TasksCancelResponse struct {
+	Cursor  string `json:"cursor"`
+	Now     Time   `json:"now"`
+	Matched int64  `json:"matched"`
+}
+
+// TasksCountRequest is /tasks/count (GET).
+type TasksCountRequest struct {
+	End   time.Time
+	Start time.Time
+	State TaskStateQuery
+	Tags  []string
+}
+
+// TasksCountResponse is /tasks/count (GET).
+type TasksCountResponse struct {
+	Count int32 `json:"count"`
+	Now   Time  `json:"now"`
+}
+
+// TasksGetStateRequest is /tasks/get_states (GET).
+type TasksGetStateRequest struct {
+	TaskID []string
+}
+
+// TasksGetStateResponse is /tasks/get_states (GET).
+type TasksGetStateResponse struct {
+	States []TaskState `json:"states"`
+}
+
+// TasksListRequest is /tasks/list (GET).
+type TasksListRequest struct {
+	Limit                   int64
+	Cursor                  string
+	End                     time.Time
+	Start                   time.Time
+	State                   TaskStateQuery
+	Tags                    []string
+	Sort                    TaskSort
+	IncludePerformanceStats bool
+}
+
+// TasksListResponse is /tasks/list (GET).
+type TasksListResponse struct {
+	Cursor string       `json:"cursor"`
+	Items  []TaskResult `json:"items"`
+	Now    Time         `json:"now"`
+}
+
+// TasksNewRequest is /tasks/new (POST).
+type TasksNewRequest struct {
+}
+
+// TasksNewResponse is /tasks/new (POST).
+type TasksNewResponse struct {
+}
+
+// TasksRequestsRequest is /tasks/requests (GET).
+type TasksRequestsRequest struct {
+	Limit                   int64
+	Cursor                  string
+	End                     time.Time
+	Start                   time.Time
+	State                   TaskStateQuery
+	Tags                    []string
+	Sort                    TaskSort
+	IncludePerformanceStats bool
+}
+
+// TasksRequestsResponse is /tasks/requests (GET).
+type TasksRequestsResponse struct {
+	Cursor string        `json:"cursor"`
+	Items  []TaskRequest `json:"items"`
+	Now    Time          `json:"now"`
+}
+
+// TaskCancelResponse is /task/<id>/cancel (POST).
+type TaskCancelResponse struct {
+	Ok         bool `json:"ok"`
+	WasRunning bool `json:"was_running"`
+}
+
+// TaskRequestResponse is /task/<id>/request (GET).
+type TaskRequestResponse = TaskRequest
+
+// TaskResultRequest is /task/<id>/result (GET).
+type TaskResultRequest struct {
+	IncludePerformanceStats bool
+}
+
+// TaskResultResponse is /task/<id>/result (GET).
+type TaskResultResponse = TaskResult
+
+// TaskStdoutRequest is /task/<id>/stdout (GET).
+type TaskStdoutRequest struct {
+	Offset int64
+	Length int64
+}
+
+// TaskStdoutResponse is /task/<id>/stdout (GET).
+type TaskStdoutResponse struct {
+	Output string    `json:"output"`
+	State  TaskState `json:"state"`
+}
+
+// TaskQueuesListRequest is /queues/list (GET).
+type TaskQueuesListRequest struct {
+	Cursor string
+	Limit  int64
+}
+
+// TaskQueuesListResponse is /queues/list (GET).
+type TaskQueuesListResponse struct {
+	Cursor string      `json:"cursor"`
+	Items  []TaskQueue `json:"items"`
+	Now    Time        `json:"now"`
+}
+
+//
+
 // Digest is a CAS reference.
 type Digest struct {
 	Hash string `json:"hash"`
@@ -42,19 +172,6 @@ type CacheEntry struct {
 // TaskOutput stores a task's output.
 type TaskOutput struct {
 	Size int64
-}
-
-// TasksCount is /tasks/count.
-type TasksCount struct {
-	Count int32 `json:"count"`
-	Now   Time  `json:"now"`
-}
-
-// TasksList is /tasks/list.
-type TasksList struct {
-	Cursor string       `json:"cursor"`
-	Items  []TaskResult `json:"items"`
-	Now    Time         `json:"now"`
 }
 
 // ContainmentType declares the type of process containment the bot shall do.
@@ -116,7 +233,7 @@ type TaskRequest struct {
 	Authenticated       string
 	User                string
 	ServiceAccount      string
-	Priority            int
+	Priority            int32
 	Tags                []string
 	ManualTags          []string
 	ParentTask          int64
@@ -194,4 +311,16 @@ type TaskResult struct {
 // FromDB converts the model to the API.
 func (t *TaskResult) FromDB(m *model.TaskResult) {
 	panic("TODO")
+}
+
+// TaskStateQuery is TODO. Default is ALL
+type TaskStateQuery = string
+
+// TaskSort is TODO. Default is CREATED_TS
+type TaskSort = string
+
+// TaskQueue is a task queue.
+type TaskQueue struct {
+	Dimensions []string `json:"dimensions"`
+	ValidUntil Time     `json:"valid_until_ts"`
 }

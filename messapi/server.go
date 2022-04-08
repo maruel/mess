@@ -1,7 +1,9 @@
 package messapi
 
-// ServerDetails reports details about the server.
-type ServerDetails struct {
+import "github.com/maruel/mess/internal/model"
+
+// ServerDetailsResponse is /server/details (GET).
+type ServerDetailsResponse struct {
 	ServerVersion string `json:"server_version"`
 	BotVersion    string `json:"bot_version"`
 	// DEPRECATED: MachineProviderTemplate  string `json:"machine_provider_template"`
@@ -10,8 +12,15 @@ type ServerDetails struct {
 	CASViewerServer string `json:"cas_viewer_server"`
 }
 
-// ServerPermissions reports the client's permissions.
-type ServerPermissions struct {
+// ServerPermissionsRequest is /server/permissions (GET).
+type ServerPermissionsRequest struct {
+	BotID  string
+	TaskID model.TaskID
+	Tags   []string
+}
+
+// ServerPermissionsResponse is /server/permissions (GET).
+type ServerPermissionsResponse struct {
 	DeleteBot    bool `json:"delete_bot"`
 	DeleteBots   bool `json:"delete_bots"`
 	TerminateBot bool `json:"terminate_bot"`

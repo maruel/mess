@@ -46,6 +46,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// All other endpoints are bot APIs expecting a JSON response.
 	id := r.Header.Get("X-Luci-Swarming-Bot-ID")
 	now := time.Now()
 	// canary, _ := r.Cookie("GOOGAPPUID")
@@ -176,21 +177,28 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Time, id string, bot *model.Bot) {
 	// In practice it would be the command sent.
 	// bot.AddEvent(now, "poll", "")
+	bp := botPoll{}
 	if version := internal.GetBotVersion(r); bot.Version != version {
-		sendJSONResponse(w, botPoll{
-			Cmd:     "update",
-			Version: version,
-		})
+		bp.Cmd = "update"
+		bp.Version = version
+		sendJSONResponse(w, bp)
 		return
 	}
 
-	// TODO(maruel): bot_restart, run, sleep, terminate.
+	task := s.sched.poll(r.Context(), bot)
+	if task != nil {
+		bp.Cmd = "run"
+		bp.Manifest.fromRequest(task)
+		bp.Manifest.BotID = bot.Key
+		bp.Manifest.BotAuthenticatedAs = bot.AuthenticatedAs
+		sendJSONResponse(w, bp)
+	}
+	// TODO(maruel): bot_restart, terminate.
 
 	// TODO(maruel): When sleep, do long (2 minutes?) hanging poll instead.
-	sendJSONResponse(w, botPoll{
-		Cmd:      "sleep",
-		Duration: 10,
-	})
+	bp.Cmd = "sleep"
+	bp.Duration = 10
+	sendJSONResponse(w, bp)
 }
 
 // botRequest is the JSON HTTP POST content. Depending on different endpoints,
@@ -260,7 +268,17 @@ type botPollManifest struct {
 	RelativeWD         string                 `json:"relative_cwd"`
 	ResultDB           botPollResultDB        `json:"resultdb"`
 	ServiceAccounts    botPollServiceAccounts `json:"service_accounts"`
-	TaskID             string                 `json:"task_id"`
+	TaskID             model.TaskID           `json:"task_id"`
+}
+
+func (b *botPollManifest) fromRequest(t *model.TaskRequest) {
+	slice := t.TaskSlices[0]
+	//b.Caches = slice.Properties.Caches
+	//b.CIPDInput = slice.Properties.CIPDInput
+	b.Command = slice.Properties.Command
+	//b.Containment = slice.Properties.Containment
+	// ...
+	b.TaskID = model.ToTaskID(t.Key)
 }
 
 type botPollCache struct {

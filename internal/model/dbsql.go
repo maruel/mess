@@ -89,15 +89,18 @@ func (s *sqlDB) TaskRequestAdd(r *TaskRequest) {
 	}
 }
 
-func (s *sqlDB) TaskRequestCount() int {
+func (s *sqlDB) TaskRequestCount() int64 {
 	row := s.db.QueryRow("SELECT COUNT(*) FROM TaskRequest")
-	count := 0
+	count := int64(0)
 	if err := row.Scan(&count); err != nil {
 		// TODO(maruel): Surface error? Delete entity?
 		panic(err)
 		return 0
 	}
 	return count
+}
+func (s *sqlDB) TaskRequestSlice(cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
+	panic("TODO")
 }
 
 func (s *sqlDB) TaskResultGet(id int64, r *TaskResult) {
@@ -124,9 +127,9 @@ func (s *sqlDB) TaskResultSet(r *TaskResult) {
 	}
 }
 
-func (s *sqlDB) TaskResultCount() int {
+func (s *sqlDB) TaskResultCount() int64 {
 	row := s.db.QueryRow("SELECT COUNT(*) FROM TaskResult")
-	count := 0
+	count := int64(0)
 	if err := row.Scan(&count); err != nil {
 		// TODO(maruel): Surface error? Delete entity?
 		panic(err)
@@ -159,9 +162,9 @@ func (s *sqlDB) BotSet(b *Bot) {
 	}
 }
 
-func (s *sqlDB) BotCount() int {
+func (s *sqlDB) BotCount() int64 {
 	row := s.db.QueryRow("SELECT COUNT(*) FROM Bot")
-	count := 0
+	count := int64(0)
 	if err := row.Scan(&count); err != nil {
 		// TODO(maruel): Surface error? Delete entity?
 		panic(err)
@@ -170,7 +173,7 @@ func (s *sqlDB) BotCount() int {
 	return count
 }
 
-func (s *sqlDB) BotGetSlice(cursor string, limit int) ([]Bot, string) {
+func (s *sqlDB) BotGetSlice(cursor string, limit int64) ([]Bot, string) {
 	// TODO(maruel): Implement cursor and limit.
 	rows, err := s.db.Query("SELECT * FROM Bot ORDER BY key")
 	if err != nil {
@@ -217,7 +220,7 @@ func (s *sqlDB) BotEventAdd(e *BotEvent) {
 	}
 }
 
-func (s *sqlDB) BotEventGetSlice(id, cursor string, limit int, earliest, latest time.Time) ([]BotEvent, string) {
+func (s *sqlDB) BotEventGetSlice(id, cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
 	// TODO(maruel): Implement cursor and limit.
 	rows, err := s.db.Query("SELECT * FROM BotEvent WHERE botID = ? ORDER BY key", id)
 	if err != nil {

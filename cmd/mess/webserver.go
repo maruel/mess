@@ -20,6 +20,7 @@ import (
 
 type server struct {
 	tables model.Tables
+	sched  scheduler
 	cid    string
 	l      net.Listener
 }
@@ -190,6 +191,7 @@ func (s *server) rootUIPages(w http.ResponseWriter, r *http.Request) {
 // API helpers.
 
 var errUnknownAPI = errors.New("unknown API")
+var errWrongMethod = errors.New("method Not Allowed")
 
 type errorStatus struct {
 	status int

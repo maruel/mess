@@ -76,7 +76,14 @@ func mainImpl() error {
 	}()
 
 	s := server{tables: d, cid: *cid}
+	wg.Add(1)
+	go func() {
+		s.sched.loop(ctx)
+		wg.Done()
+	}()
 	if err := s.start(*port); err != nil {
+		cancel()
+		wg.Wait()
 		return err
 	}
 	wg.Add(1)

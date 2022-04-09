@@ -306,6 +306,33 @@ func (t *TaskRequest) FromDB(m *model.TaskRequest) {
 // TaskState is the state of the task request.
 type TaskState int64
 
+// FromDBTaskState converts a task state.
+func FromDBTaskState(t model.TaskState) TaskState {
+	// Values are currently the same but I expect this to change.
+	switch t {
+	case model.Running:
+		return Running
+	case model.Pending:
+		return Pending
+	case model.Expired:
+		return Expired
+	case model.Timedout:
+		return Timedout
+	case model.BotDied:
+		return BotDied
+	case model.Canceled:
+		return Canceled
+	case model.Completed:
+		return Completed
+	case model.Killed:
+		return Killed
+	case model.NoResource:
+		return NoResource
+	default:
+		return BotDied
+	}
+}
+
 // Valid TaskState.
 const (
 	Running TaskState = iota

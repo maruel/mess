@@ -15,10 +15,11 @@ func TestBotJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := d.BotCount(); l != 0 {
+	if l, _, _, _, _ := d.BotCount(nil); l != 0 {
 		t.Fatal(l)
 	}
 	want1 := getBot()
+	want1.Deleted = false
 	d.BotSet(want1)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
@@ -27,7 +28,7 @@ func TestBotJSON(t *testing.T) {
 	if d, err = NewDBJSON(p); err != nil {
 		t.Fatal(err)
 	}
-	if l := d.BotCount(); l != 1 {
+	if l, _, _, _, _ := d.BotCount(nil); l != 1 {
 		t.Fatal(l)
 	}
 	got := Bot{}
@@ -53,10 +54,11 @@ func TestBotSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := d.BotCount(); l != 0 {
+	if l, _, _, _, _ := d.BotCount(nil); l != 0 {
 		t.Fatal(l)
 	}
 	want1 := getBot()
+	want1.Deleted = false
 	d.BotSet(want1)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
@@ -65,7 +67,7 @@ func TestBotSQL(t *testing.T) {
 	if d, err = NewDBSqlite3(p); err != nil {
 		t.Fatal(err)
 	}
-	if l := d.BotCount(); l != 1 {
+	if l, _, _, _, _ := d.BotCount(nil); l != 1 {
 		t.Fatal(l)
 	}
 	got := Bot{}
@@ -107,12 +109,14 @@ func getBot() *Bot {
 		Created:         time.Date(2020, 3, 13, 10, 9, 8, 7000, time.UTC),
 		LastSeen:        time.Date(2020, 4, 13, 10, 9, 8, 7000, time.UTC),
 		Version:         "botv1",
+		Deleted:         true,
+		Dead:            true,
 		AuthenticatedAs: "gcp1",
+		QuarantinedMsg:  "quarantined for real",
+		MaintenanceMsg:  "very busy",
+		TaskID:          123,
 		Dimensions:      map[string][]string{"a": {"b", "c"}},
 		State:           []byte(`{"python": "2.7"}`),
 		ExternalIP:      "1.2.3.4",
-		TaskID:          123,
-		QuarantinedMsg:  "quarantined for real",
-		MaintenanceMsg:  "very busy",
 	}
 }

@@ -9,6 +9,47 @@ import (
 	"time"
 )
 
+// TaskSort is a way to sort tasks.
+type TaskSort int
+
+// Valid TaskSort.
+const (
+	TaskSortCreated TaskSort = iota
+	TaskSortModified
+	TaskSortCompleted
+	TaskSortAbandoned
+	TaskSortStarted
+)
+
+// TaskStateQuery filters on different kinds of tasks.
+type TaskStateQuery int
+
+// Valid TaskStateQuery.
+const (
+	TaskStateQueryPending TaskStateQuery = iota
+	TaskStateQueryRunning
+	TaskStateQueryPendingRunning
+	TaskStateQueryCompleted
+	TaskStateQueryCompletedSuccess
+	TaskStateQueryCompletedFailure
+	TaskStateQueryExpired
+	TaskStateQueryTimedOut
+	TaskStateQueryBotDied
+	TaskStateQueryCanceled
+	TaskStateQueryAll
+	TaskStateQueryDeduped
+	TaskStateQueryKilled
+	TaskStateQueryNoResource
+)
+
+// Filter is a set of typical filters
+type Filter struct {
+	Cursor   string
+	Limit    int
+	Earliest time.Time
+	Latest   time.Time
+}
+
 // Tables is the functions to access Swarming DB tables.
 type Tables interface {
 	TaskRequestGet(id int64, r *TaskRequest)
@@ -16,19 +57,20 @@ type Tables interface {
 	// to add two TaskRequest with the same key.
 	TaskRequestAdd(r *TaskRequest)
 	TaskRequestCount() int64
-	TaskRequestSlice(cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string)
+	TaskRequestSlice(f Filter) ([]TaskRequest, string)
 
 	TaskResultGet(id int64, r *TaskResult)
 	TaskResultSet(r *TaskResult)
 	TaskResultCount() int64
+	TaskResultSlice(botid string, f Filter, state TaskStateQuery, sort TaskSort) ([]TaskResult, string)
 
 	BotGet(id string, b *Bot)
 	BotSet(b *Bot)
-	BotCount() int64
-	BotGetSlice(cursor string, limit int64) ([]Bot, string)
+	BotCount(dims map[string]string) (total, quarantined, maintenance, dead, busy int64)
+	BotGetSlice(cursor string, limit int) ([]Bot, string)
 
 	BotEventAdd(e *BotEvent)
-	BotEventGetSlice(id, cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string)
+	BotEventGetSlice(botid string, f Filter) ([]BotEvent, string)
 }
 
 // DB is a database backend.

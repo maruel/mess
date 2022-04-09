@@ -61,8 +61,26 @@ func (t *rawTables) TaskRequestCount() int64 {
 	return int64(l)
 }
 
-func (t *rawTables) TaskRequestSlice(cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
-	panic("todo")
+func (t *rawTables) TaskRequestSlice(f Filter) ([]TaskRequest, string) {
+	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() {
+		panic("implement filters")
+	}
+	if f.Limit == 0 {
+		panic("set limit")
+	}
+	t.mu.Lock()
+	l := len(t.TasksRequest)
+	if l > f.Limit {
+		l = f.Limit
+	}
+	out := make([]TaskRequest, 0, l)
+	// TODO(maruel): Copy in order.
+	for _, v := range t.TasksRequest {
+		// TODO(maruel): Deep copy slices. :(
+		out = append(out, *v)
+	}
+	t.mu.Unlock()
+	return out, ""
 }
 
 func (t *rawTables) TaskResultGet(id int64, r *TaskResult) {
@@ -103,6 +121,28 @@ func (t *rawTables) BotGet(id string, b *Bot) {
 	t.mu.Unlock()
 }
 
+func (t *rawTables) TaskResultSlice(botid string, f Filter, state TaskStateQuery, sort TaskSort) ([]TaskResult, string) {
+	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() || state != TaskStateQueryAll || sort != TaskSortCreated {
+		panic("implement filters")
+	}
+	if f.Limit == 0 {
+		panic("set limit")
+	}
+	t.mu.Lock()
+	l := len(t.TasksResult)
+	if l > f.Limit {
+		l = f.Limit
+	}
+	out := make([]TaskResult, 0, l)
+	// TODO(maruel): Copy in order.
+	for _, v := range t.TasksResult {
+		// TODO(maruel): Deep copy slices. :(
+		out = append(out, *v)
+	}
+	t.mu.Unlock()
+	return out, ""
+}
+
 func (t *rawTables) BotSet(b *Bot) {
 	t.mu.Lock()
 	if t.Bots[b.Key] == nil {
@@ -117,22 +157,56 @@ func (t *rawTables) BotSet(b *Bot) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) BotCount() int64 {
+func (t *rawTables) BotCount(dims map[string]string) (total, quarantined, maintenance, dead, busy int64) {
+	cutoff := time.Now().Add(-DeadAfter)
+	if len(dims) != 0 {
+		panic("implement filters")
+	}
 	t.mu.Lock()
-	l := len(t.Bots)
+	for _, b := range t.Bots {
+		if b.Deleted {
+			continue
+		}
+		total++
+		if b.QuarantinedMsg != "" {
+			quarantined++
+		}
+		if b.MaintenanceMsg != "" {
+			maintenance++
+		}
+		if b.LastSeen.After(cutoff) {
+			dead++
+		}
+		if b.TaskID != 0 {
+			busy++
+		}
+	}
 	t.mu.Unlock()
-	return int64(l)
+	return
 }
 
-func (t *rawTables) BotGetSlice(cursor string, limit int64) ([]Bot, string) {
-	// TODO(maruel): Implement cursor and limit.
+func (t *rawTables) BotGetSlice(cursor string, limit int) ([]Bot, string) {
+	if cursor != "" {
+		panic("implement cursor")
+	}
+	if limit == 0 {
+		panic("set limit")
+	}
 	t.mu.Lock()
-	b := make([]Bot, len(t.Bots))
-	i := 0
+	l := len(t.Bots) / 2
+	if l > limit {
+		l = limit
+	}
+	b := make([]Bot, 0, l)
 	for _, v := range t.Bots {
+		if v.Deleted {
+			continue
+		}
 		// TODO(maruel): Deep copy slices. :(
-		b[i] = *v
-		i++
+		b = append(b, *v)
+		if len(b) == l {
+			break
+		}
 	}
 	t.mu.Unlock()
 	return b, ""
@@ -149,14 +223,21 @@ func (t *rawTables) BotEventAdd(e *BotEvent) {
 	t.mu.Unlock()
 }
 
-func (t *rawTables) BotEventGetSlice(id, cursor string, limit int64, earliest, latest time.Time) ([]BotEvent, string) {
-	// TODO(maruel): Implement cursor and limit.
+func (t *rawTables) BotEventGetSlice(botid string, f Filter) ([]BotEvent, string) {
+	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() {
+		panic("implement filters")
+	}
 	t.mu.Lock()
-	be := t.BotEvents[id]
-	b := make([]BotEvent, len(be))
-	for i, v := range be {
+	be := t.BotEvents[botid]
+	l := len(be)
+	if l > f.Limit {
+		l = f.Limit
+	}
+	b := make([]BotEvent, 0, l)
+	// Copy in reverse order.
+	for i := len(be) - 1; i >= 0; i-- {
 		// TODO(maruel): Deep copy slices. :(
-		b[i] = *v
+		b = append(b, *be[i])
 	}
 	t.mu.Unlock()
 	return b, ""

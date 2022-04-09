@@ -76,6 +76,7 @@ func mainImpl() error {
 	}()
 
 	s := server{tables: d, cid: *cid}
+	s.sched.init(d)
 	wg.Add(1)
 	go func() {
 		s.sched.loop(ctx)

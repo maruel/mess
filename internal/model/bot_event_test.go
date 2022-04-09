@@ -27,11 +27,12 @@ func TestBotEventJSON(t *testing.T) {
 	want2 := getBotEvent()
 	want2.Message = "message 2"
 	d.BotEventAdd(want2)
-	all, cursor := d.BotEventGetSlice("bot1", "", 100, time.Now(), time.Now())
+	f := Filter{Limit: 100}
+	all, cursor := d.BotEventGetSlice("bot1", f)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff([]BotEvent{*want1, *want2}, all); diff != "" {
+	if diff := cmp.Diff([]BotEvent{*want2, *want1}, all); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 	if cursor != "" {
@@ -57,11 +58,12 @@ func TestBotEventSQL(t *testing.T) {
 	want2 := getBotEvent()
 	want2.Message = "message 2"
 	d.BotEventAdd(want2)
-	all, cursor := d.BotEventGetSlice("bot1", "", 100, time.Now(), time.Now())
+	f := Filter{Limit: 100}
+	all, cursor := d.BotEventGetSlice("bot1", f)
 	if err = d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff([]BotEvent{*want1, *want2}, all); diff != "" {
+	if diff := cmp.Diff([]BotEvent{*want2, *want1}, all); diff != "" {
 		t.Fatalf("(want +got):\n%s", diff)
 	}
 	if cursor != "" {

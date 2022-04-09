@@ -17,11 +17,11 @@ type BotsCountRequest struct {
 // BotsCountResponse is /bots/count (GET).
 type BotsCountResponse struct {
 	Now         Time  `json:"now"`
-	Count       int32 `json:"count"`
-	Quarantined int32 `json:"quarantined"`
-	Maintenance int32 `json:"maintenance"`
-	Dead        int32 `json:"dead"`
-	Busy        int32 `json:"busy"`
+	Count       int64 `json:"count"`
+	Quarantined int64 `json:"quarantined"`
+	Maintenance int64 `json:"maintenance"`
+	Dead        int64 `json:"dead"`
+	Busy        int64 `json:"busy"`
 }
 
 // BotsDimensionsRequest is /bots/dimensions (GET).
@@ -142,8 +142,7 @@ func (b *Bot) FromDB(m *model.Bot) {
 	b.ExternalIP = m.ExternalIP
 	b.AuthenticatedAs = m.AuthenticatedAs
 	b.FirstSeen = CloudTime(m.Created)
-	// TODO(maruel): timer.
-	b.IsDead = time.Since(m.LastSeen) > 10*time.Minute
+	b.IsDead = m.Dead
 	b.LastSeen = CloudTime(m.LastSeen)
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg
@@ -151,7 +150,7 @@ func (b *Bot) FromDB(m *model.Bot) {
 	// b.TaskName
 	b.Version = m.Version
 	b.State = string(m.State)
-	// b.Deleted
+	b.Deleted = b.Deleted
 }
 
 // BotEvents is events that a bot produced.

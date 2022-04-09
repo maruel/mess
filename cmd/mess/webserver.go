@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/maruel/mess/internal/model"
 	"github.com/maruel/mess/third_party/ui2/dist"
+	"github.com/maruel/panicparse/v2/stack"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -124,9 +128,37 @@ func wrapLog(h http.Handler) http.Handler {
 				} else {
 					line = l.Error().Str("recovered", fmt.Sprintf("%v", v))
 				}
-				// TODO(maruel): Use panicparse.
 				// TODO(maruel): Send an monitoring alert.
-				line = line.Str("stack", string(debug.Stack()))
+				rawStack := debug.Stack()
+				st, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), ioutil.Discard, stack.DefaultOpts())
+				if err != nil || len(st.Goroutines) != 1 {
+					line = line.Str("stack", string(rawStack))
+				} else {
+					// Calculate alignment.
+					srcLen := 0
+					pkgLen := 0
+					for _, line := range st.Goroutines[0].Stack.Calls {
+						if l := len(fmt.Sprintf("%s:%d", line.SrcName, line.Line)); l > srcLen {
+							srcLen = l
+						}
+						if l := len(filepath.Base(line.Func.ImportPath)); l > pkgLen {
+							pkgLen = l
+						}
+					}
+					buf := bytes.Buffer{}
+					for _, line := range st.Goroutines[0].Stack.Calls {
+						fmt.Fprintf(
+							&buf,
+							"    %-*s %-*s %s(%s)\n",
+							pkgLen, line.Func.DirName, srcLen,
+							fmt.Sprintf("%s:%d", line.SrcName, line.Line),
+							line.Func.Name, &line.Args)
+					}
+					if st.Goroutines[0].Stack.Elided {
+						io.WriteString(&buf, "    (...)\n")
+					}
+					line = line.Str("parsed", buf.String())
+				}
 			} else {
 				line = l.Info()
 			}

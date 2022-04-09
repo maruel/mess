@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -19,35 +20,51 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func getHost(r *http.Request) string {
-	if r.URL.Host != "" {
-		return r.URL.Host
+func getHost(req *http.Request) string {
+	if req.URL.Host != "" {
+		return req.URL.Host
 	}
-	return r.Header.Get("X-Forwarded-Host")
+	if l := req.Header.Get("X-Forwarded-Host"); l != "" {
+		return l
+	}
+	// Needed for localhost.
+	return req.Host
+}
+
+func getURL(req *http.Request) string {
+	host := getHost(req)
+	if host == "" {
+		panic(fmt.Sprintf("%# v", req))
+	}
+	scheme := req.URL.Scheme
+	if scheme == "" {
+		scheme = "http:"
+	}
+	return scheme + "//" + host
 }
 
 // GetBotVersion return the swarming_bot.zip's hashed content.
-func GetBotVersion(r *http.Request) string {
-	host := getHost(r)
+func GetBotVersion(req *http.Request) string {
+	url := getURL(req)
 	mu.Lock()
-	v := botVersion[host]
+	v := botVersion[url]
 	mu.Unlock()
 	// Was already cached, quick return.
 	if v != "" {
 		return v
 	}
-	GetBotZIP(r)
+	GetBotZIP(req)
 	mu.Lock()
-	v = botVersion[host]
+	v = botVersion[url]
 	mu.Unlock()
 	return v
 }
 
 // GetBotZIP return the swarming_bot.zip bytes.
 func GetBotZIP(req *http.Request) []byte {
-	host := getHost(req)
+	url := getURL(req)
 	mu.Lock()
-	b := botCode[host]
+	b := botCode[url]
 	mu.Unlock()
 	// Was already cached, quick return.
 	if b != nil {
@@ -55,7 +72,7 @@ func GetBotZIP(req *http.Request) []byte {
 	}
 
 	s := time.Now()
-	cfg, err := json.Marshal(config{Server: "https://" + host})
+	cfg, err := json.Marshal(config{Server: url})
 	if err != nil {
 		panic(err)
 	}
@@ -112,17 +129,17 @@ func GetBotZIP(req *http.Request) []byte {
 
 	race := false
 	mu.Lock()
-	if b2 := botCode[host]; b2 != nil {
+	if b2 := botCode[url]; b2 != nil {
 		// Discard our version.
 		race = true
 		b = b2
 	} else {
-		botCode[host] = b
-		botVersion[host] = v
+		botCode[url] = b
+		botVersion[url] = v
 	}
 	mu.Unlock()
 
-	log.Ctx(req.Context()).Info().Str("host", host).Str("hash", v).
+	log.Ctx(req.Context()).Info().Str("url", url).Str("hash", v).
 		Int("size", len(b)).Bool("race", race).
 		Dur("ms", time.Since(s).Round(time.Millisecond/10)).
 		Msg("GetBotZIP")

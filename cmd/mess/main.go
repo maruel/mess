@@ -107,11 +107,11 @@ func mainImpl() error {
 	if err != nil {
 		return err
 	}
-	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
 
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	wg.Add(1)

@@ -31,7 +31,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/bot_code") {
 		version := internal.GetBotVersion(r)
 		if r.URL.Path[len("/bot_code/"):] != version {
-			// TODO(maruel): Log a warning.
+			// It happens...
 			http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
 			return
 		}

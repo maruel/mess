@@ -44,9 +44,9 @@ func (s *scheduler) loop(ctx context.Context) {
 	<-ctx.Done()
 }
 
-// schedule registers a task and tries to assign it to a bot inline. Returns
+// enqueue registers a task and tries to assign it to a bot inline. Returns
 // the resulting TaskResult.
-func (s *scheduler) schedule(ctx context.Context, r *model.TaskRequest) *model.TaskResult {
+func (s *scheduler) enqueue(ctx context.Context, r *model.TaskRequest) *model.TaskResult {
 	// Try to find a bot readily available. If not, skip.
 	// TODO(maruel): Precompute task queues.
 	s.mu.Lock()

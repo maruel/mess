@@ -88,6 +88,11 @@ type TasksNewRequest struct {
 	Realm                string           `json":realm"`
 }
 
+// ToDB converts the API to the model.
+func (t *TasksNewRequest) ToDB(m *model.TaskRequest) {
+	panic("TODO")
+}
+
 // TasksNewResponse is /tasks/new (POST).
 type TasksNewResponse struct {
 	Request TaskRequest  `json:"request"`

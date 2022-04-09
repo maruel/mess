@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -126,12 +127,42 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/bots/dimensions" {
-		_ = messapi.BotsDimensionsRequest{
+		req := messapi.BotsDimensionsRequest{
 			Pool: r.Form["pool"],
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement querying bot dimensions")
+		if len(req.Pool) == 1 && req.Pool[0] == "" {
+			req.Pool = nil
+		}
+		if len(req.Pool) != 0 {
+			log.Ctx(r.Context()).Error().Interface("pool", req.Pool).Msg("TODO: implement bot pool")
+		}
+		// TODO(maruel): It has to be made more performant; O(n^3).
+		objs, _ := s.tables.BotGetSlice("", 1000)
+		dims := map[string][]string{}
+		for i := range objs {
+			for k, botvals := range objs[i].Dimensions {
+				for _, botval := range botvals {
+					found := false
+					for _, v := range dims[k] {
+						if botval == v {
+							found = true
+							break
+						}
+					}
+					if !found {
+						dims[k] = append(dims[k], botval)
+					}
+				}
+			}
+		}
+		items := make([]messapi.StringListPair, 0, len(dims))
+		for k, vals := range dims {
+			sort.Strings(vals)
+			items = append(items, messapi.StringListPair{Key: k, Values: vals})
+		}
+		sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
 		sendJSONResponse(w, messapi.BotsDimensionsResponse{
-			BotsDimensions: []messapi.StringListPair{},
+			BotsDimensions: items,
 			Now:            cloudNow,
 		})
 		return
@@ -263,8 +294,15 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if !readPOSTJSON(w, r, &t) {
 			return
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement task creation")
-		sendJSONResponse(w, messapi.TasksNewResponse{})
+		m := model.TaskRequest{}
+		t.ToDB(&m)
+		s.tables.TaskRequestAdd(&m)
+		n := s.sched.enqueue(r.Context(), &m)
+		s.tables.TaskResultSet(n)
+		resp := messapi.TasksNewResponse{TaskID: model.ToTaskID(m.Key)}
+		resp.Request.FromDB(&m)
+		resp.Result.FromDB(n)
+		sendJSONResponse(w, resp)
 		return
 	}
 	if r.URL.Path == "/tasks/requests" {

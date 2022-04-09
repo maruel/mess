@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -19,19 +20,29 @@ import (
 )
 
 type server struct {
+	// Immutable
+	local   bool
+	version string
+	cid     string
+
 	tables model.Tables
 	sched  scheduler
-	cid    string
 	l      net.Listener
 }
 
 func (s *server) start(port int) error {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return err
+	var err error
+	suffix := fmt.Sprintf(":%d", port)
+	if s.local {
+		// See https://github.com/golang/go/issues/22826 and example workaround at
+		// https://go-review.googlesource.com/c/crypto/+/42496
+		if s.l, err = net.Listen("tcp", "127.0.0.1"+suffix); err != nil {
+			s.l, err = net.Listen("tcp", "[::1]"+suffix)
+		}
+	} else {
+		s.l, err = net.Listen("tcp", suffix)
 	}
-	s.l = l
-	return nil
+	return err
 }
 
 var uiFS = http.FileServer(http.FS(dist.FS))
@@ -67,15 +78,6 @@ func (c *countingWriter) Flush() {
 	c.ResponseWriter.(http.Flusher).Flush()
 }
 
-/*
-// TODO(maruel): Not all writers support Hijacker. We do not use websocket
-// for now so it should not be a problem.
-func (c *countingWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	// When this occurs, the write length is lost.
-	return c.ResponseWriter.(http.Hijacker).Hijack()
-}
-*/
-
 var reqID uint64
 
 // wrapLog wraps logging with zerolog.
@@ -93,6 +95,7 @@ func wrapLog(h http.Handler) http.Handler {
 		p := r.URL.Path
 		m := r.Method
 		ip := r.RemoteAddr
+		ip2 := getRemoteIP(r)
 		ref := r.Header.Get("Referer")
 		ua := r.Header.Get("User-Agent")
 		if bot := r.Header.Get("X-Luci-Swarming-Bot-ID"); bot != "" {
@@ -127,6 +130,10 @@ func wrapLog(h http.Handler) http.Handler {
 				Str("p", p).
 				Str("m", m).
 				Str("ip", ip)
+			if !strings.HasPrefix(ip, ip2) {
+				// If the IP address was forwarded by a transparent HTTP proxy.
+				line = line.Str("ip2", ip2)
+			}
 			if ua != "" {
 				line = line.Str("ua", ua)
 			}
@@ -161,10 +168,10 @@ func (s *server) serve(ctx context.Context) {
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
-		//Handler:      &loghttp.Handler{Handler: &mux},
-		Handler:      wrapLog(&mux),
-		ReadTimeout:  10. * time.Second,
-		WriteTimeout: time.Minute,
+		Handler:     wrapLog(&mux),
+		ReadTimeout: time.Minute,
+		IdleTimeout: 10 * time.Minute,
+		// TODO(maruel): TLSConfig: tlscfg,
 	}
 	go w.Serve(s.l)
 }
@@ -218,4 +225,32 @@ func sendJSONResponse(w http.ResponseWriter, res interface{}) {
 	w.Write(raw)
 }
 
-const serverVersion = "v0.0.1"
+// getRemoteIP returns the IP address, handling transparent HTTP proxy.
+//
+// Note that this can be faked, so it cannot be used for authentication.
+func getRemoteIP(r *http.Request) string {
+	//if s := r.Header.Get("Forwarded"); s != "" {
+	//	return s
+	//}
+	if s := r.Header.Get("X-Forwarded-IP"); s != "" {
+		return s
+	}
+	if s := r.Header.Get("X-Forwarded-For"); s != "" {
+		return s
+	}
+	return r.RemoteAddr
+}
+
+// isLocal returns if the HTTP request comes from a local IP address.
+func isLocal(r *http.Request) bool {
+	// TODO(maruel): Very cheezy way to only allow local bots for now.
+	// TODO(maruel): Allow local IPv6.
+	if !strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
+		return false
+	}
+	// Check for local transparent HTTP proxy.
+	if !strings.HasPrefix(getRemoteIP(r), "127.0.0.1") {
+		return false
+	}
+	return true
+}

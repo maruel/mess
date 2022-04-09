@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -18,6 +20,33 @@ import (
 )
 
 var started = time.Now()
+
+func getVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown version/" + runtime.Version()
+	}
+	commit := ""
+	timestamp := ""
+	tainted := false
+	for _, s := range info.Settings {
+		if s.Key == "vcs.time" {
+			timestamp = s.Value
+		} else if s.Key == "vcs.revision" {
+			commit = s.Value
+		} else if s.Key == "vcs.modified" && s.Value == "true" {
+			tainted = true
+		}
+	}
+	if commit == "" || timestamp == "" {
+		return "parsing error/" + runtime.Version()
+	}
+	s := timestamp[:16] + "-" + commit[:10]
+	if tainted {
+		s += "-tainted"
+	}
+	return s + "/" + info.GoVersion
+}
 
 func configureLog() {
 	zerolog.CallerMarshalFunc = func(file string, line int) string {
@@ -37,7 +66,8 @@ func configureLog() {
 
 func mainImpl() error {
 	configureLog()
-	port := flag.Int("port", 7899, "HTTP port")
+	port := flag.Int("port", 7899, "HTTP port for the web server to listen to")
+	local := flag.Bool("local", false, "Bind local, allow everyone to be admin; useful for local testing the UI")
 	cid := flag.String("cid", "", "Google OAuth2 Client ID")
 	flag.Parse()
 
@@ -62,6 +92,7 @@ func mainImpl() error {
 	if err != nil {
 		return err
 	}
+	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
 
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -75,7 +106,13 @@ func mainImpl() error {
 		wg.Done()
 	}()
 
-	s := server{tables: d, cid: *cid}
+	ver := getVersion()
+	s := server{
+		local:   *local,
+		version: ver,
+		cid:     *cid,
+		tables:  d,
+	}
 	s.sched.init(d)
 	wg.Add(1)
 	go func() {
@@ -93,7 +130,9 @@ func mainImpl() error {
 		wg.Done()
 	}()
 
-	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
+	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).
+		Str("port", s.l.Addr().String()).
+		Str("version", ver).Msg("Listening")
 	done := ctx.Done()
 	wg.Add(1)
 	go func() {

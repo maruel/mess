@@ -16,6 +16,11 @@ import (
 )
 
 func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
+	if !isLocal(r) {
+		sendJSONResponse(w, errorStatus{status: 403})
+		return
+	}
+
 	// Non-API URLs.
 	h := w.Header()
 	if r.URL.Path == "/server_ping" {
@@ -110,7 +115,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 			BotVersion:         internal.GetBotVersion(r),
 			BotConfigRev:       "??",
 			BotConfigName:      "bot_config.py",
-			ServerVersion:      serverVersion,
+			ServerVersion:      s.version,
 			BotGroupCfgVersion: "??",
 			BotGroupCfg: botGroupCfg{
 				// Inject server side dimensions.
@@ -323,18 +328,4 @@ type botPollServiceAccounts struct {
 
 	System string `json:"system"`
 	Task   string `json:"task"`
-}
-
-func getRemoteIP(r *http.Request) string {
-	//if s := r.Header.Get("Forwarded"); s != "" {
-	//	return s
-	//}
-	if s := r.Header.Get("X-Forwarded-IP"); s != "" {
-		return s
-	}
-	if s := r.Header.Get("X-Forwarded-For"); s != "" {
-		return s
-	}
-	return r.RemoteAddr
-
 }

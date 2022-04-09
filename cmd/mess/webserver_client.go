@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -15,7 +16,75 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// aclType is the type of needed access for each API.
+type aclType int
+
+const (
+	noAccess aclType = iota
+	// Minimal access.
+	canAccess
+	// Can get a new bot
+	canBootstrap
+	canViewAllBots
+	canViewAllTasks
+	canEditAllTasks
+	// canViewTask
+	// canEditTask
+)
+
+type userInfo struct {
+	Sub           string `json:"sub"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Profile       string `json:"profile"`
+	Picture       string `json:"picture"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	Gender        string `json:"gender"`
+}
+
+// fetchUserInfo fetches the user info for a logged in user.
+func fetchUserInfo(c *http.Client, res *userInfo) error {
+	resp, err := c.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, res)
+}
+
+func (s *server) apiACL(w http.ResponseWriter, r *http.Request, acl aclType) bool {
+	log.Ctx(r.Context()).Info().Interface("hdr", r.Header).Msg("login")
+	local := isLocal(r)
+	if local && acl == canAccess {
+		return true
+	}
+	// Even if bound to localhost, check for transparent HTTP proxy header.
+	if s.local && !local {
+		sendJSONResponse(w, errorStatus{status: 403})
+		return false
+	}
+	/*
+		c := http.DefaultClient
+		user := userInfo{}
+		if err := fetchUserInfo(c, &user); err != nil {
+			log.Ctx(r.Context()).Error().Err(err).Msg("oauth2")
+			return false
+		}
+	*/
+	return true
+}
+
 func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
+	if !s.apiACL(w, r, canAccess) {
+		return
+	}
+
 	// Always parse URL query parameters.
 	newValues, err := url.ParseQuery(r.URL.RawQuery)
 	if newValues == nil {
@@ -64,7 +133,7 @@ func (s *server) apiEndpointServer(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/server/details" {
 		sendJSONResponse(w, messapi.ServerDetailsResponse{
-			ServerVersion: serverVersion,
+			ServerVersion: s.version,
 			BotVersion:    internal.GetBotVersion(r),
 		})
 		return

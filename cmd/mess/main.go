@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +70,8 @@ func mainImpl() error {
 	port := flag.Int("port", 7899, "HTTP port for the web server to listen to")
 	local := flag.Bool("local", false, "Bind local, allow everyone to be admin; useful for local testing the UI")
 	cid := flag.String("cid", "", "Google OAuth2 Client ID")
+	usr := flag.String("usr", "", "Comma separated users allowed access")
+
 	flag.Parse()
 
 	if *cid == "" {
@@ -86,6 +89,18 @@ func mainImpl() error {
 		fmt.Printf("It should look like 1111-aaaaaaaaaaa.apps.googleusercontent.com\n")
 		fmt.Printf("\n")
 	}
+
+	allowed := map[string]struct{}{}
+	for _, u := range strings.Split(*usr, ",") {
+		allowed[u] = struct{}{}
+	}
+	if len(allowed) == 0 {
+		fmt.Printf("Warning: No user is allowed access.\n")
+		fmt.Printf("\n")
+		fmt.Printf("Use the -usr flag to allow Google Accounts.\n")
+		fmt.Printf("\n")
+	}
+
 	// Use one of sqlite or json DB backend.
 	d, err := model.NewDBSqlite3("mess.db")
 	//d, err := model.NewDBJSON("db.json.zst")
@@ -108,10 +123,12 @@ func mainImpl() error {
 
 	ver := getVersion()
 	s := server{
-		local:   *local,
-		version: ver,
-		cid:     *cid,
-		tables:  d,
+		local:     *local,
+		version:   ver,
+		cid:       *cid,
+		allowed:   allowed,
+		tables:    d,
+		authCache: map[string]*userInfo{},
 	}
 	s.sched.init(d)
 	wg.Add(1)

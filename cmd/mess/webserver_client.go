@@ -13,6 +13,7 @@ import (
 	"github.com/maruel/mess/internal"
 	"github.com/maruel/mess/internal/model"
 	"github.com/maruel/mess/messapi"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,11 +46,14 @@ type userInfo struct {
 }
 
 // fetchUserInfo fetches the user info for a logged in user.
-func fetchUserInfo(c *http.Client, res *userInfo) error {
-	resp, err := c.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+func fetchUserInfo(bearer string, res *userInfo) error {
+	c := http.Client{}
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo", nil)
 	if err != nil {
 		return err
 	}
+	req.Header.Add("Authorization", bearer)
+	resp, err := c.Do(req)
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -58,10 +62,13 @@ func fetchUserInfo(c *http.Client, res *userInfo) error {
 	return json.Unmarshal(data, res)
 }
 
+// apiACL checks for access control.
+//
+// If returns false, already sent 403.
 func (s *server) apiACL(w http.ResponseWriter, r *http.Request, acl aclType) bool {
-	log.Ctx(r.Context()).Info().Interface("hdr", r.Header).Msg("login")
 	local := isLocal(r)
 	if local && acl == canAccess {
+		// Fast allow.
 		return true
 	}
 	// Even if bound to localhost, check for transparent HTTP proxy header.
@@ -69,14 +76,43 @@ func (s *server) apiACL(w http.ResponseWriter, r *http.Request, acl aclType) boo
 		sendJSONResponse(w, errorStatus{status: 403})
 		return false
 	}
-	/*
-		c := http.DefaultClient
-		user := userInfo{}
-		if err := fetchUserInfo(c, &user); err != nil {
+	bearer := r.Header.Get("Authorization")
+	if bearer == "" {
+		sendJSONResponse(w, errorStatus{status: 403})
+		return false
+	}
+	s.mu.Lock()
+	user := s.authCache[bearer]
+	s.mu.Unlock()
+	// TODO(maruel): Keep in the database to reduce the workload on startup. Need
+	// expiration.
+	if user == nil {
+		user = &userInfo{}
+		if err := fetchUserInfo(bearer, user); err != nil {
 			log.Ctx(r.Context()).Error().Err(err).Msg("oauth2")
+			sendJSONResponse(w, errorStatus{status: 403})
 			return false
 		}
-	*/
+		s.mu.Lock()
+		s.authCache[bearer] = user
+		s.mu.Unlock()
+	}
+	if user.Email == "" {
+		sendJSONResponse(w, errorStatus{status: 403})
+		return false
+	}
+	log.Ctx(r.Context()).UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("email", user.Email)
+	})
+	if !user.EmailVerified {
+		log.Ctx(r.Context()).Warn().Msg("email not verified")
+		sendJSONResponse(w, errorStatus{status: 403})
+		return false
+	}
+	if _, ok := s.allowed[user.Email]; !ok {
+		sendJSONResponse(w, errorStatus{status: 403})
+		return false
+	}
 	return true
 }
 

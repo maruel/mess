@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,10 +25,14 @@ type server struct {
 	local   bool
 	version string
 	cid     string
+	allowed map[string]struct{}
 
 	tables model.Tables
 	sched  scheduler
 	l      net.Listener
+
+	mu        sync.Mutex
+	authCache map[string]*userInfo
 }
 
 func (s *server) start(port int) error {

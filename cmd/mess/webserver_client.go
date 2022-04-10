@@ -202,6 +202,44 @@ func (s *server) apiEndpointServer(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
+func listToMap(l []string) map[string]string {
+	out := make(map[string]string, len(l))
+	for _, s := range l {
+		p := strings.SplitN(s, ":", 2)
+		if len(p) != 2 {
+			return nil
+		}
+		out[p[0]] = p[1]
+	}
+	return out
+}
+
+func (s *server) getBotDimensions(pool string) map[string][]string {
+	// TODO(maruel): It has to be made more performant; O(n^3).
+	objs, _ := s.tables.BotGetSlice("", 1000)
+	dims := map[string][]string{}
+	for i := range objs {
+		for k, botvals := range objs[i].Dimensions {
+			for _, botval := range botvals {
+				found := false
+				for _, v := range dims[k] {
+					if botval == v {
+						found = true
+						break
+					}
+				}
+				if !found {
+					dims[k] = append(dims[k], botval)
+				}
+			}
+		}
+	}
+	for k := range dims {
+		sort.Strings(dims[k])
+	}
+	return dims
+}
+
 func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 	// All bots APIs are GET.
 	if !isMethodJSON(w, r, "GET") {
@@ -212,13 +250,9 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 		req := messapi.BotsCountRequest{
 			Dimensions: r.Form["dimensions"],
 		}
-		dims := make(map[string]string, len(req.Dimensions))
-		for _, s := range req.Dimensions {
-			p := strings.SplitN(s, ":", 2)
-			if len(p) != 2 {
-				sendJSONResponse(w, errorStatus{status: 404, err: errors.New("bad dimensions format")})
-			}
-			dims[p[0]] = p[1]
+		dims := listToMap(req.Dimensions)
+		if dims == nil {
+			sendJSONResponse(w, errorStatus{status: 404, err: errors.New("bad dimensions format")})
 		}
 		total, quarantined, maintenance, dead, busy := s.tables.BotCount(dims)
 		sendJSONResponse(w, messapi.BotsCountResponse{
@@ -241,33 +275,8 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 		if len(req.Pool) != 0 {
 			log.Ctx(r.Context()).Error().Interface("pool", req.Pool).Msg("TODO: implement bot pool")
 		}
-		// TODO(maruel): It has to be made more performant; O(n^3).
-		objs, _ := s.tables.BotGetSlice("", 1000)
-		dims := map[string][]string{}
-		for i := range objs {
-			for k, botvals := range objs[i].Dimensions {
-				for _, botval := range botvals {
-					found := false
-					for _, v := range dims[k] {
-						if botval == v {
-							found = true
-							break
-						}
-					}
-					if !found {
-						dims[k] = append(dims[k], botval)
-					}
-				}
-			}
-		}
-		items := make([]messapi.StringListPair, 0, len(dims))
-		for k, vals := range dims {
-			sort.Strings(vals)
-			items = append(items, messapi.StringListPair{Key: k, Values: vals})
-		}
-		sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
 		sendJSONResponse(w, messapi.BotsDimensionsResponse{
-			BotsDimensions: items,
+			BotsDimensions: messapi.ToStringListPairs(s.getBotDimensions("")),
 			Now:            cloudNow,
 		})
 		return
@@ -302,7 +311,8 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
-	cloudNow := messapi.CloudTime(time.Now())
+	now := time.Now()
+	cloudNow := messapi.CloudTime(now)
 	if r.URL.Path == "/tasks/cancel" {
 		t := messapi.TasksCancelRequest{}
 		if !readPOSTJSON(w, r, &t) {
@@ -384,8 +394,11 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		objs, cursor := s.tables.TaskResultSlice("", f, model.TaskStateQueryAll, model.TaskSortCreated)
 		items := make([]messapi.TaskResult, len(objs))
+		robj := model.TaskRequest{}
 		for i := range objs {
-			items[i].FromDB(&objs[i])
+			// TODO(maruel): Make more performant.
+			s.tables.TaskRequestGet(objs[i].Key, &robj)
+			items[i].FromDB(&robj, &objs[i])
 		}
 		sendJSONResponse(w, messapi.TasksListResponse{
 			Cursor: cursor,
@@ -400,13 +413,13 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		m := model.TaskRequest{}
-		t.ToDB(&m)
+		t.ToDB(now, &m)
 		s.tables.TaskRequestAdd(&m)
 		n := s.sched.enqueue(r.Context(), &m)
 		s.tables.TaskResultSet(n)
 		resp := messapi.TasksNewResponse{TaskID: model.ToTaskID(m.Key)}
 		resp.Request.FromDB(&m)
-		resp.Result.FromDB(n)
+		resp.Result.FromDB(&m, n)
 		sendJSONResponse(w, resp)
 		return
 	}
@@ -590,10 +603,12 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 			_ = messapi.TaskResultRequest{
 				IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
 			}
+			robj := model.TaskRequest{}
+			s.tables.TaskRequestGet(id, &robj)
 			t := model.TaskResult{}
 			s.tables.TaskResultGet(id, &t)
 			resp := messapi.TaskResultResponse{}
-			resp.FromDB(&t)
+			resp.FromDB(&robj, &t)
 			sendJSONResponse(w, resp)
 			return
 		case "stdout":

@@ -83,6 +83,8 @@ func (s *scheduler) poll(ctx context.Context, bot *model.Bot) *model.TaskRequest
 	return t
 }
 
+//
+
 // murmurHash64A is 64bit MurmurHash2, by Austin Appleby.
 func murmurHash64A(data []byte) uint64 {
 	const seed uint64 = 0xDECAFBADDECAFBAD

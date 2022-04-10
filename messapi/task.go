@@ -89,8 +89,28 @@ type TasksNewRequest struct {
 }
 
 // ToDB converts the API to the model.
-func (t *TasksNewRequest) ToDB(m *model.TaskRequest) {
-	panic("TODO")
+func (t *TasksNewRequest) ToDB(now time.Time, m *model.TaskRequest) error {
+	// TODO(maruel): Validate!!
+	m.Name = t.Name
+	m.ParentTask = model.FromTaskID(t.ParentTaskID)
+	m.Priority = t.Priority
+	m.TaskSlices = make([]model.TaskSlice, len(t.TaskSlices))
+	for i := range t.TaskSlices {
+		if err := t.TaskSlices[i].ToDB(&m.TaskSlices[i]); err != nil {
+			return err
+		}
+	}
+	m.Tags = t.Tags
+	m.User = t.User
+	m.Created = now
+	m.ServiceAccount = t.ServiceAccount
+	m.PubSubAuthToken = t.PubSubAuthToken
+	m.PubSubAuthToken = t.PubSubAuthToken
+	m.PubSubUserData = t.PubSubUserData
+	//m.BotPingToleranceSecs
+	m.ResultDB = t.ResultDB.Enable
+	m.Realm = t.Realm
+	return nil
 }
 
 // TasksNewResponse is /tasks/new (POST).
@@ -208,6 +228,20 @@ type CIPDPackage struct {
 	Path    string `json:"path"`
 }
 
+// FromDB converts the model to the API.
+func (t *CIPDPackage) FromDB(m *model.CIPDPackage) {
+	t.PkgName = m.PkgName
+	t.Version = m.Version
+	t.Path = m.Path
+}
+
+// ToDB converts the API to the model.
+func (t *CIPDPackage) ToDB(m *model.CIPDPackage) {
+	m.PkgName = t.PkgName
+	m.Version = t.Version
+	m.Path = t.Path
+}
+
 // Cache is a named cache entry.
 type Cache struct {
 	Name string `json:"name"`
@@ -231,21 +265,80 @@ type Containment struct {
 
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
-	Caches       []Cache          `json:"caches"`
-	CIPDInput    CIPDInput        `json:"cipd_input"`
-	Command      []string         `json:"command"`
-	RelativeWD   string           `json:"relative_cwd"`
-	Dimensions   []StringPair     `json:"dimensions"`
-	Env          []StringPair     `json:"env"`
-	EnvPrefixes  []StringListPair `json:"env_prefixes"`
-	HardTimeout  int64            `json:"execution_timeout_secs"`
-	GracePeriod  int64            `json:"grace_period_secs"`
-	Idempotent   bool             `json:"idempotent"`
-	CASInputRoot CASReference     `json:"cas_input_root"`
-	IOTimeout    int64            `json:"io_timeout_secs"`
-	Outputs      []string         `json:"outputs"`
-	SecretBytes  []byte           `json:"secret_bytes"`
-	Containment  Containment      `json:"containment"`
+	Caches          []Cache          `json:"caches"`
+	CIPDInput       CIPDInput        `json:"cipd_input"`
+	Command         []string         `json:"command"`
+	RelativeWD      string           `json:"relative_cwd"`
+	Dimensions      []StringPair     `json:"dimensions"`
+	Env             []StringPair     `json:"env"`
+	EnvPrefixes     []StringListPair `json:"env_prefixes"`
+	HardTimeoutSecs int64            `json:"execution_timeout_secs"`
+	GracePeriodSecs int64            `json:"grace_period_secs"`
+	Idempotent      bool             `json:"idempotent"`
+	CASInputRoot    CASReference     `json:"cas_input_root"`
+	IOTimeoutSecs   int64            `json:"io_timeout_secs"`
+	Outputs         []string         `json:"outputs"`
+	SecretBytes     []byte           `json:"secret_bytes"`
+	Containment     Containment      `json:"containment"`
+}
+
+// FromDB converts the model to the API.
+func (t *TaskProperties) FromDB(m *model.TaskProperties) {
+	t.Caches = make([]Cache, len(m.Caches))
+	for i := range m.Caches {
+		t.Caches[i].Name = m.Caches[i].Name
+		t.Caches[i].Path = m.Caches[i].Path
+	}
+	t.CIPDInput.Server = m.CIPDHost
+	t.CIPDInput.ClientPackage.FromDB(&m.CIPDClient)
+	t.CIPDInput.Packages = make([]CIPDPackage, len(m.CIPDPackages))
+	for i := range m.CIPDPackages {
+		t.CIPDInput.Packages[i].FromDB(&m.CIPDPackages[i])
+	}
+	t.Command = m.Command
+	t.RelativeWD = m.RelativeWD
+	t.Dimensions = ToStringPairs(m.Dimensions)
+	t.Env = ToStringPairs(m.Env)
+	t.EnvPrefixes = ToStringListPairs(m.EnvPrefixes)
+	t.HardTimeoutSecs = int64(m.HardTimeout / time.Second)
+	t.GracePeriodSecs = int64(m.GracePeriod / time.Second)
+	t.Idempotent = m.Idempotent
+	t.CASInputRoot.Host = m.CASHost
+	t.CASInputRoot.Digest.FromDB(&m.Input)
+	t.IOTimeoutSecs = int64(m.IOTimeout / time.Second)
+	t.Outputs = m.Outputs
+	// t.SecretBytes Never read back.
+	t.Containment.ContainmentType = m.Containment.ContainmentType
+}
+
+// ToDB converts the API to the model.
+func (t *TaskProperties) ToDB(m *model.TaskProperties) error {
+	m.Caches = make([]model.Cache, len(t.Caches))
+	for i := range t.Caches {
+		m.Caches[i].Name = t.Caches[i].Name
+		m.Caches[i].Path = t.Caches[i].Path
+	}
+	m.CIPDHost = t.CIPDInput.Server
+	t.CIPDInput.ClientPackage.ToDB(&m.CIPDClient)
+	m.CIPDPackages = make([]model.CIPDPackage, len(t.CIPDInput.Packages))
+	for i := range t.CIPDInput.Packages {
+		t.CIPDInput.Packages[i].ToDB(&m.CIPDPackages[i])
+	}
+	m.Command = t.Command
+	m.RelativeWD = t.RelativeWD
+	t.Dimensions = ToStringPairs(m.Dimensions)
+	m.Env = FromStringPairs(t.Env)
+	m.EnvPrefixes = FromStringListPairs(t.EnvPrefixes)
+	m.HardTimeout = time.Duration(t.HardTimeoutSecs) * time.Second
+	m.GracePeriod = time.Duration(t.GracePeriodSecs) * time.Second
+	m.Idempotent = t.Idempotent
+	m.CASHost = t.CASInputRoot.Host
+	t.CASInputRoot.Digest.ToDB(&m.Input)
+	m.IOTimeout = time.Duration(t.IOTimeoutSecs) * time.Second
+	m.Outputs = t.Outputs
+	m.SecretBytes = t.SecretBytes
+	m.Containment.ContainmentType = t.Containment.ContainmentType
+	return nil
 }
 
 // TaskSlice defines one "option" to run the task.
@@ -255,14 +348,20 @@ type TaskSlice struct {
 	WaitForCapacity bool           `json:"wait_for_capacity"`
 }
 
-/* REMOVE
-// BuildToken is a LUCI Buildbucket token.
-type BuildToken struct {
-	BuildID         int64
-	Token           string
-	BuildbucketHost string
+// FromDB converts the model to the API.
+func (t *TaskSlice) FromDB(m *model.TaskSlice) {
+	t.Properties.FromDB(&m.Properties)
+	t.ExpirationSecs = int64(m.Expiration / time.Second)
+	t.WaitForCapacity = m.WaitForCapacity
 }
-*/
+
+// ToDB converts the API to the model.
+func (t *TaskSlice) ToDB(m *model.TaskSlice) error {
+	t.Properties.ToDB(&m.Properties)
+	m.Expiration = m.Expiration * time.Second
+	m.WaitForCapacity = t.WaitForCapacity
+	return nil
+}
 
 // PoolTaskTemplate determines the kind of template to use.
 type PoolTaskTemplate int32
@@ -303,7 +402,24 @@ type TaskRequest struct {
 
 // FromDB converts the model to the API.
 func (t *TaskRequest) FromDB(m *model.TaskRequest) {
-	panic("TODO")
+	t.Name = m.Name
+	t.TaskID = model.ToTaskID(m.Key)
+	t.ParentTaskID = model.ToTaskID(m.ParentTask)
+	t.Priority = m.Priority
+	t.Tags = m.Tags
+	t.Created = CloudTime(m.Created)
+	t.User = m.User
+	t.Authenticated = m.Authenticated
+	t.TaskSlices = make([]TaskSlice, len(m.TaskSlices))
+	for i := range m.TaskSlices {
+		t.TaskSlices[i].FromDB(&m.TaskSlices[i])
+	}
+	t.ServiceAccount = m.ServiceAccount
+	t.Realm = m.Realm
+	t.ResultDB.Enable = m.ResultDB
+	t.PubSubTopic = m.PubSubTopic
+	t.PubSubUserData = m.PubSubUserData
+	// TODO(maruel):: t.BotPingToleranceSecs = m.BotPingTolerance
 }
 
 //
@@ -359,7 +475,7 @@ type ResultDB struct {
 
 // OperationStats is the statistic for one operation.
 type OperationStats struct {
-	Duration float64 `json:"duration"`
+	DurationSecs float64 `json:"duration"`
 }
 
 // CASOperationStats is RBE-CAS operation.
@@ -388,7 +504,7 @@ type TaskPerfStats struct {
 // TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
 	Abandoned        Time             `json:"abandoned_ts"`
-	BotDimension     []StringListPair `json:"bot_dimensions"`
+	BotDimensions    []StringListPair `json:"bot_dimensions"`
 	BotID            string           `json:"bot_id"`
 	BotIdleSince     Time             `json:"bot_idle_since_ts"`
 	BotVersion       string           `json:"bot_version"`
@@ -397,7 +513,7 @@ type TaskResult struct {
 	CostSavedUSD     float64          `json:"cost_saved_usd"`
 	Created          Time             `json:"created_ts"`
 	DedupedFrom      model.TaskID     `json:"deduped_from"`
-	Duration         float64          `json:"duration"`
+	DurationSecs     float64          `json:"duration"`
 	ExitCode         int32            `json:"exit_code"`
 	Failure          bool             `json:"failure"`
 	InternalFailure  bool             `json:"internal_failure"`
@@ -413,15 +529,54 @@ type TaskResult struct {
 	Tags             []string         `json:"tags"`
 	User             string           `json:"user"`
 	Perf             TaskPerfStats    `json:"performance_stats"`
-	CIPDPIns         CIPDPins         `json:"cipd_pins"`
+	CIPDPins         CIPDPins         `json:"cipd_pins"`
 	RunID            model.TaskID     `json:"run_id"`
 	CurrentTaskSlice int32            `json:"current_task_slice"`
 	ResultDB         ResultDB         `json:"resultdb_info"`
 }
 
 // FromDB converts the model to the API.
-func (t *TaskResult) FromDB(m *model.TaskResult) {
+func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
+	t.Abandoned = CloudTime(m.Abandoned)
+	t.BotDimensions = ToStringListPairs(m.BotDimensions)
+	t.BotID = m.BotID
+	// TODO(maruel): t.BotIdleSince = m.BotIdleSince
+	t.BotVersion = m.BotVersion
+	t.Children = make([]model.TaskID, len(m.Children))
+	for i, c := range m.Children {
+		t.Children[i] = model.ToTaskID(c)
+	}
+	t.Completed = CloudTime(m.Completed)
+	t.CostSavedUSD = 0 // TODO(maruel): implement.
+	t.Created = CloudTime(r.Created)
+	t.DedupedFrom = model.ToTaskID(m.DedupedFrom)
+	t.DurationSecs = float64(m.Duration) / float64(time.Second)
+	t.ExitCode = m.ExitCode
+	t.Failure = m.ExitCode != 0
+	t.InternalFailure = m.InternalFailure != ""
+	t.Modified = CloudTime(m.Modified)
+	// TODO(maruel): Use currentslice?
+	t.CASOutput.Host = r.TaskSlices[0].Properties.CASHost
+	t.CASOutput.Digest.FromDB(&m.Output)
+	t.ServerVersions = m.ServerVersions
+	t.Started = CloudTime(m.Started)
+	t.State = FromDBTaskState(m.State)
+	t.TaskID = model.ToTaskID(m.Key)
+	t.TryNumber = 0
+	if m.State != model.Pending {
+		t.TryNumber = 1
+	}
+	t.CostsUSD = []float64{}
+	t.Name = r.Name
+	t.Tags = r.Tags
+	t.User = r.User
+	//t.Perf
 	panic("TODO")
+	//t.CIPDPins.Pkgs = m.CIPDPins
+	t.RunID = t.TaskID // No difference in mess.
+	t.CurrentTaskSlice = t.CurrentTaskSlice
+	t.ResultDB.Host = m.ResultDB.Host
+	t.ResultDB.Invocation = m.ResultDB.Invocation
 }
 
 //

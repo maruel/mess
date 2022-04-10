@@ -122,6 +122,11 @@ func getTaskRequest() *TaskRequest {
 						Hash: [32]byte{1, 2, 3},
 					},
 					CIPDHost: "chrome-package",
+					CIPDClient: CIPDPackage{
+						PkgName: "cipdclient",
+						Version: "cver",
+						Path:    "cpath",
+					},
 					CIPDPackages: []CIPDPackage{
 						{
 							PkgName: "pkgname",
@@ -131,14 +136,14 @@ func getTaskRequest() *TaskRequest {
 					},
 					Dimensions:  map[string]string{"os": "Windows"},
 					Env:         map[string]string{"FOO": "bar"},
-					EnvPrefixes: map[string]string{"PATH": "./foo"},
+					EnvPrefixes: map[string][]string{"PATH": {"./foo"}},
 					HardTimeout: time.Minute,
 					GracePeriod: time.Second,
 					IOTimeout:   2 * time.Minute,
+					SecretBytes: []byte("sekret"),
 					Idempotent:  true,
 					Outputs:     []string{"foo"},
 					Containment: Containment{
-						LowerPriority:   true,
 						ContainmentType: ContainmentJobObject,
 					},
 				},

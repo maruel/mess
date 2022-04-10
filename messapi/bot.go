@@ -1,7 +1,6 @@
 package messapi
 
 import (
-	"sort"
 	"time"
 
 	"github.com/maruel/mess/internal/model"
@@ -131,14 +130,7 @@ type Bot struct {
 // FromDB converts the model to the API.
 func (b *Bot) FromDB(m *model.Bot) {
 	b.BotID = m.Key
-	b.Dimensions = make([]StringListPair, len(m.Dimensions))
-	i := 0
-	for k, v := range m.Dimensions {
-		b.Dimensions[i].Key = k
-		b.Dimensions[i].Values = v
-		i++
-	}
-	sort.Slice(b.Dimensions, func(i, j int) bool { return b.Dimensions[i].Key < b.Dimensions[j].Key })
+	b.Dimensions = ToStringListPairs(m.Dimensions)
 	b.ExternalIP = m.ExternalIP
 	b.AuthenticatedAs = m.AuthenticatedAs
 	b.FirstSeen = CloudTime(m.Created)
@@ -147,7 +139,7 @@ func (b *Bot) FromDB(m *model.Bot) {
 	b.Quarantined = m.QuarantinedMsg != ""
 	b.MaintenanceMsg = m.MaintenanceMsg
 	b.TaskID = model.ToTaskID(m.TaskID)
-	// b.TaskName
+	// TODO(maruel): b.TaskName
 	b.Version = m.Version
 	b.State = string(m.State)
 	b.Deleted = b.Deleted
@@ -180,11 +172,7 @@ func (b *BotEvent) FromDB(m *model.BotEvent) {
 	b.Time = CloudTime(m.Time)
 	b.Event = m.Event
 	b.Message = m.Message
-	b.Dimensions = make([]StringListPair, 0, len(m.Dimensions))
-	for k, v := range m.Dimensions {
-		b.Dimensions = append(b.Dimensions, StringListPair{Key: k, Values: v})
-	}
-	sort.Slice(b.Dimensions, func(i, j int) bool { return b.Dimensions[i].Key < b.Dimensions[j].Key })
+	b.Dimensions = ToStringListPairs(m.Dimensions)
 	b.State = string(m.State)
 	b.ExternalIP = m.ExternalIP
 	b.AuthenticatedAs = m.AuthenticatedAs

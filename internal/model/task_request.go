@@ -14,9 +14,9 @@ import (
 // TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
 	Key                 int64       `json:"a"`
-	SchemaVersion       int         `json:"b"`
+	SchemaVersion       int64       `json:"b"`
 	Created             time.Time   `json:"c"`
-	Priority            int         `json:"d"`
+	Priority            int32       `json:"d"`
 	ParentTask          int64       `json:"e"`
 	Tags                []string    `json:"f"`
 	TaskSlices          []TaskSlice `json:"g"`
@@ -63,9 +63,9 @@ func FromTaskID(t TaskID) int64 {
 
 type taskRequestSQL struct {
 	key           int64
-	schemaVersion int
+	schemaVersion int64
 	created       int64
-	priority      int
+	priority      int32
 	parentTask    int64
 	tags          string
 	blob          []byte
@@ -186,28 +186,29 @@ const (
 
 // Containment declares the type of process containment the bot shall do.
 type Containment struct {
-	LowerPriority   bool            `json:"a"`
-	ContainmentType ContainmentType `json:"b"`
+	ContainmentType ContainmentType `json:"a"`
 }
 
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
-	Caches       []Cache           `json:"a"`
-	Command      []string          `json:"b"`
-	RelativeWD   string            `json:"c"`
-	CASHost      string            `json:"d"`
-	Input        Digest            `json:"e"`
-	CIPDHost     string            `json:"f"`
-	CIPDPackages []CIPDPackage     `json:"g"`
-	Dimensions   map[string]string `json:"h"`
-	Env          map[string]string `json:"i"`
-	EnvPrefixes  map[string]string `json:"j"`
-	HardTimeout  time.Duration     `json:"k"`
-	GracePeriod  time.Duration     `json:"l"`
-	IOTimeout    time.Duration     `json:"m"`
-	Idempotent   bool              `json:"n"`
-	Outputs      []string          `json:"o"`
-	Containment  Containment       `json:"p"`
+	Caches       []Cache             `json:"a"`
+	Command      []string            `json:"b"`
+	RelativeWD   string              `json:"c"`
+	CASHost      string              `json:"d"`
+	Input        Digest              `json:"e"`
+	CIPDHost     string              `json:"f"`
+	CIPDClient   CIPDPackage         `json:"g"`
+	CIPDPackages []CIPDPackage       `json:"h"`
+	Dimensions   map[string]string   `json:"i"`
+	Env          map[string]string   `json:"j"`
+	EnvPrefixes  map[string][]string `json:"k"`
+	HardTimeout  time.Duration       `json:"l"`
+	GracePeriod  time.Duration       `json:"m"`
+	IOTimeout    time.Duration       `json:"n"`
+	SecretBytes  []byte              `json:"o"`
+	Idempotent   bool                `json:"p"`
+	Outputs      []string            `json:"q"`
+	Containment  Containment         `json:"r"`
 }
 
 // TaskSlice defines one "option" to run the task.

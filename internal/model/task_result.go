@@ -7,31 +7,32 @@ import (
 
 // TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
-	Key            int64               `json:"a"`
-	SchemaVersion  int                 `json:"b"`
-	BotID          string              `json:"c"`
-	BotVersion     string              `json:"d"`
-	BotDimension   map[string][]string `json:"e"`
-	BotIdleSince   time.Duration       `json:"f"`
-	ServerVersions []string            `json:"g"`
-	TaskSlice      int64               `json:"h"`
-	DedupedFrom    int64               `json:"i"`
-	PropertiesHash string              `json:"j"`
-	TaskOutput     TaskOutput          `json:"k"`
-	ExitCode       int64               `json:"l"`
-	State          TaskState           `json:"m"`
-	Children       []int64             `json:"n"`
-	Output         Digest              `json:"o"`
-	CIPDPins       []CIPDPackage       `json:"p"`
-	ResultDB       ResultDB            `json:"q"`
-	Duration       time.Duration       `json:"r"`
-	Started        time.Time           `json:"s"`
-	Completed      time.Time           `json:"t"`
-	Abandoned      time.Time           `json:"u"`
-	Modified       time.Time           `json:"v"`
-	Cost           float64             `json:"w"`
-	Killing        bool                `json:"x"`
-	DeadAfter      time.Time           `json:"y"`
+	Key              int64               `json:"a"`
+	SchemaVersion    int                 `json:"b"`
+	BotID            string              `json:"c"`
+	BotVersion       string              `json:"d"`
+	BotDimensions    map[string][]string `json:"e"`
+	BotIdleSince     time.Duration       `json:"f"`
+	ServerVersions   []string            `json:"g"`
+	CurrentTaskSlice int32               `json:"h"`
+	DedupedFrom      int64               `json:"i"`
+	PropertiesHash   string              `json:"j"`
+	TaskOutput       TaskOutput          `json:"k"`
+	ExitCode         int32               `json:"l"`
+	InternalFailure  string              `json:"m"`
+	State            TaskState           `json:"n"`
+	Children         []int64             `json:"o"`
+	Output           Digest              `json:"p"`
+	CIPDPins         []CIPDPackage       `json:"q"`
+	ResultDB         ResultDB            `json:"r"`
+	Duration         time.Duration       `json:"s"`
+	Started          time.Time           `json:"t"`
+	Completed        time.Time           `json:"u"`
+	Abandoned        time.Time           `json:"v"`
+	Modified         time.Time           `json:"w"`
+	Cost             float64             `json:"x"`
+	Killing          bool                `json:"y"`
+	DeadAfter        time.Time           `json:"z"`
 }
 
 type taskResultSQL struct {
@@ -55,28 +56,29 @@ func (r *taskResultSQL) from(t *TaskResult) {
 	r.schemaVersion = t.SchemaVersion
 	r.botID = t.BotID
 	b := taskResultSQLBlob{
-		BotVersion:     t.BotVersion,
-		BotDimension:   t.BotDimension,
-		BotIdleSince:   t.BotIdleSince,
-		ServerVersions: t.ServerVersions,
-		TaskSlice:      t.TaskSlice,
-		DedupedFrom:    t.DedupedFrom,
-		PropertiesHash: t.PropertiesHash,
-		TaskOutput:     t.TaskOutput,
-		ExitCode:       t.ExitCode,
-		State:          t.State,
-		Children:       t.Children,
-		Output:         t.Output,
-		CIPDPins:       t.CIPDPins,
-		ResultDB:       t.ResultDB,
-		Duration:       t.Duration,
-		Started:        t.Started,
-		Completed:      t.Completed,
-		Abandoned:      t.Abandoned,
-		Modified:       t.Modified,
-		Cost:           t.Cost,
-		Killing:        t.Killing,
-		DeadAfter:      t.DeadAfter,
+		BotVersion:       t.BotVersion,
+		BotDimensions:    t.BotDimensions,
+		BotIdleSince:     t.BotIdleSince,
+		ServerVersions:   t.ServerVersions,
+		CurrentTaskSlice: t.CurrentTaskSlice,
+		DedupedFrom:      t.DedupedFrom,
+		PropertiesHash:   t.PropertiesHash,
+		TaskOutput:       t.TaskOutput,
+		ExitCode:         t.ExitCode,
+		InternalFailure:  t.InternalFailure,
+		State:            t.State,
+		Children:         t.Children,
+		Output:           t.Output,
+		CIPDPins:         t.CIPDPins,
+		ResultDB:         t.ResultDB,
+		Duration:         t.Duration,
+		Started:          t.Started,
+		Completed:        t.Completed,
+		Abandoned:        t.Abandoned,
+		Modified:         t.Modified,
+		Cost:             t.Cost,
+		Killing:          t.Killing,
+		DeadAfter:        t.DeadAfter,
 	}
 	var err error
 	r.blob, err = json.Marshal(&b)
@@ -94,14 +96,15 @@ func (r *taskResultSQL) to(t *TaskResult) {
 		panic("internal error: " + err.Error())
 	}
 	t.BotVersion = b.BotVersion
-	t.BotDimension = b.BotDimension
+	t.BotDimensions = b.BotDimensions
 	t.BotIdleSince = b.BotIdleSince
 	t.ServerVersions = b.ServerVersions
-	t.TaskSlice = b.TaskSlice
+	t.CurrentTaskSlice = b.CurrentTaskSlice
 	t.DedupedFrom = b.DedupedFrom
 	t.PropertiesHash = b.PropertiesHash
 	t.TaskOutput = b.TaskOutput
 	t.ExitCode = b.ExitCode
+	t.InternalFailure = b.InternalFailure
 	t.State = b.State
 	t.Children = b.Children
 	t.Output = b.Output
@@ -133,28 +136,29 @@ CREATE TABLE IF NOT EXISTS TaskResult (
 
 // taskResultSQLBlob contains the unindexed fields.
 type taskResultSQLBlob struct {
-	BotVersion     string              `json:"a"`
-	BotDimension   map[string][]string `json:"b"`
-	BotIdleSince   time.Duration       `json:"c"`
-	ServerVersions []string            `json:"d"`
-	TaskSlice      int64               `json:"e"`
-	DedupedFrom    int64               `json:"f"`
-	PropertiesHash string              `json:"g"`
-	TaskOutput     TaskOutput          `json:"h"`
-	ExitCode       int64               `json:"i"`
-	State          TaskState           `json:"j"`
-	Children       []int64             `json:"k"`
-	Output         Digest              `json:"l"`
-	CIPDPins       []CIPDPackage       `json:"m"`
-	ResultDB       ResultDB            `json:"n"`
-	Duration       time.Duration       `json:"o"`
-	Started        time.Time           `json:"p"`
-	Completed      time.Time           `json:"q"`
-	Abandoned      time.Time           `json:"r"`
-	Modified       time.Time           `json:"s"`
-	Cost           float64             `json:"t"`
-	Killing        bool                `json:"u"`
-	DeadAfter      time.Time           `json:"v"`
+	BotVersion       string              `json:"a"`
+	BotDimensions    map[string][]string `json:"b"`
+	BotIdleSince     time.Duration       `json:"c"`
+	ServerVersions   []string            `json:"d"`
+	CurrentTaskSlice int32               `json:"e"`
+	DedupedFrom      int64               `json:"f"`
+	PropertiesHash   string              `json:"g"`
+	TaskOutput       TaskOutput          `json:"h"`
+	ExitCode         int32               `json:"i"`
+	InternalFailure  string              `json:"j"`
+	State            TaskState           `json:"k"`
+	Children         []int64             `json:"l"`
+	Output           Digest              `json:"m"`
+	CIPDPins         []CIPDPackage       `json:"n"`
+	ResultDB         ResultDB            `json:"o"`
+	Duration         time.Duration       `json:"p"`
+	Started          time.Time           `json:"q"`
+	Completed        time.Time           `json:"r"`
+	Abandoned        time.Time           `json:"s"`
+	Modified         time.Time           `json:"t"`
+	Cost             float64             `json:"u"`
+	Killing          bool                `json:"v"`
+	DeadAfter        time.Time           `json:"w"`
 }
 
 // TaskState is the state of the task request.

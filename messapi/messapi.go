@@ -2,6 +2,7 @@ package messapi
 
 import (
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -24,10 +25,50 @@ type StringPair struct {
 	Value string `json:"value"`
 }
 
+func ToStringPairs(d map[string]string) []StringPair {
+	out := make([]StringPair, len(d))
+	x := 0
+	for k, v := range d {
+		out[x].Key = k
+		out[x].Value = v
+		x++
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+func FromStringPairs(d []StringPair) map[string]string {
+	out := make(map[string]string, len(d))
+	for i := range d {
+		out[d[i].Key] = d[i].Value
+	}
+	return out
+}
+
 // StringListPair is a key values item.
 type StringListPair struct {
 	Key    string   `json:"key"`
 	Values []string `json:"value"`
+}
+
+func ToStringListPairs(d map[string][]string) []StringListPair {
+	out := make([]StringListPair, len(d))
+	x := 0
+	for k, v := range d {
+		out[x].Key = k
+		out[x].Values = v
+		x++
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+func FromStringListPairs(d []StringListPair) map[string][]string {
+	out := make(map[string][]string, len(d))
+	for i := range d {
+		out[d[i].Key] = d[i].Values
+	}
+	return out
 }
 
 // ThreeState is an optional value.

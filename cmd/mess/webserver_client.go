@@ -43,6 +43,7 @@ type userInfo struct {
 	EmailVerified bool   `json:"email_verified"`
 	Gender        string `json:"gender"`
 	Locale        string `json:"locale"`
+	HD            string `json:"hd"`
 }
 
 // fetchUserInfo fetches the user info for a logged in user.

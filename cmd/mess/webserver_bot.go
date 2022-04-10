@@ -20,6 +20,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		sendJSONResponse(w, errorStatus{status: 403})
 		return
 	}
+	ctx := r.Context()
 
 	// Non-API URLs.
 	h := w.Header()
@@ -29,12 +30,12 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/bot_code" {
-		version := internal.GetBotVersion(r)
+		version := internal.GetBotVersion(ctx, getURL(r))
 		http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/bot_code") {
-		version := internal.GetBotVersion(r)
+		version := internal.GetBotVersion(ctx, getURL(r))
 		if r.URL.Path[len("/bot_code/"):] != version {
 			// It happens...
 			http.Redirect(w, r, "/swarming/api/v1/bot/bot_code/"+version, http.StatusFound)
@@ -47,7 +48,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		h.Set("Cache-Control", "public, max-age=3600")
 		h.Set("Content-Type", "application/octet-stream")
 		h.Set("Content-Disposition", "attachment; filename=\"swarming_bot.zip\"")
-		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(r)))
+		http.ServeContent(w, r, "swarming_bot.zip", started, bytes.NewReader(internal.GetBotZIP(ctx, getURL(r))))
 		return
 	}
 
@@ -76,7 +77,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	j.DisallowUnknownFields()
 	j.UseNumber()
 	if err = j.Decode(&br); err != nil {
-		log.Ctx(r.Context()).Error().Str("err", err.Error()).Msg("failed to decode bot request")
+		log.Ctx(ctx).Error().Str("err", err.Error()).Msg("failed to decode bot request")
 		sendJSONResponse(w, errorStatus{status: 400, err: err})
 		return
 	}
@@ -112,7 +113,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		s.tables.BotEventAdd(&e)
 
 		data := botHandshake{
-			BotVersion:         internal.GetBotVersion(r),
+			BotVersion:         internal.GetBotVersion(ctx, getURL(r)),
 			BotConfigRev:       "??",
 			BotConfigName:      "bot_config.py",
 			ServerVersion:      s.version,
@@ -175,7 +176,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		s.tables.BotSet(&bot)
 		return
 	}
-	log.Ctx(r.Context()).Error().Msg("Unknown bot request")
+	log.Ctx(ctx).Error().Msg("Unknown bot request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
@@ -183,19 +184,21 @@ func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Tim
 	// In practice it would be the command sent.
 	// bot.AddEvent(now, "poll", "")
 	bp := botPoll{}
-	if version := internal.GetBotVersion(r); bot.Version != version {
+	ctx := r.Context()
+	if version := internal.GetBotVersion(ctx, getURL(r)); bot.Version != version {
 		bp.Cmd = "update"
 		bp.Version = version
 		sendJSONResponse(w, bp)
 		return
 	}
 
-	task := s.sched.poll(r.Context(), bot)
+	task := s.sched.poll(ctx, bot)
 	if task != nil {
 		bp.Cmd = "run"
-		bp.Manifest.fromRequest(task)
+		bp.Manifest.fromRequest(task, 0)
 		bp.Manifest.BotID = bot.Key
 		bp.Manifest.BotAuthenticatedAs = bot.AuthenticatedAs
+		bp.Manifest.Host = getURL(r)
 		sendJSONResponse(w, bp)
 	}
 	// TODO(maruel): bot_restart, terminate.
@@ -253,36 +256,61 @@ type botPoll struct {
 }
 
 type botPollManifest struct {
-	BotID              string                 `json:"bot_id"`
-	BotAuthenticatedAs string                 `json:"bot_authenticated_as"`
-	Caches             []botPollCache         `json:"caches"`
-	CIPDInput          []botPollCIPDInput     `json:"cipd_input"`
-	Command            []string               `json:"command"`
-	Containment        botPollContainment     `json:"containment"`
-	Dimensions         []messapi.StringPair   `json:"dimensions"`
-	Env                []messapi.StringPair   `json:"env"`
-	EnvPrefixes        []messapi.StringPair   `json:"env_prefixes"`
-	GracePeriod        int                    `json:"grace_period"`
-	HardTimeout        int                    `json:"hard_timeout"`
-	Host               string                 `json:"host"`
-	IOTimeout          int                    `json:"io_timeout"`
-	SecretBytes        string                 `json:"secret_bytes"` // base64 encoded
-	CASInputRoot       botPollCASInputRoot    `json:"cas_input_root"`
-	Outputs            []string               `json:"outputs"`
-	Realm              botPollRealm           `json:"realm"`
-	RelativeWD         string                 `json:"relative_cwd"`
-	ResultDB           botPollResultDB        `json:"resultdb"`
-	ServiceAccounts    botPollServiceAccounts `json:"service_accounts"`
-	TaskID             model.TaskID           `json:"task_id"`
+	BotID              string                   `json:"bot_id"`
+	BotAuthenticatedAs string                   `json:"bot_authenticated_as"`
+	Caches             []botPollCache           `json:"caches"`
+	CIPDInput          botPollCIPDInput         `json:"cipd_input"`
+	Command            []string                 `json:"command"`
+	Containment        botPollContainment       `json:"containment"`
+	Dimensions         []messapi.StringPair     `json:"dimensions"`
+	Env                []messapi.StringPair     `json:"env"`
+	EnvPrefixes        []messapi.StringListPair `json:"env_prefixes"`
+	GracePeriod        int64                    `json:"grace_period"`
+	HardTimeout        int64                    `json:"hard_timeout"`
+	Host               string                   `json:"host"`
+	IOTimeout          int64                    `json:"io_timeout"`
+	SecretBytes        string                   `json:"secret_bytes"` // base64 encoded
+	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root"`
+	Outputs            []string                 `json:"outputs"`
+	Realm              botPollRealm             `json:"realm"`
+	RelativeWD         string                   `json:"relative_cwd"`
+	ResultDB           botPollResultDB          `json:"resultdb"`
+	ServiceAccounts    botPollServiceAccounts   `json:"service_accounts"`
+	TaskID             model.TaskID             `json:"task_id"`
 }
 
-func (b *botPollManifest) fromRequest(t *model.TaskRequest) {
-	slice := t.TaskSlices[0]
-	//b.Caches = slice.Properties.Caches
-	//b.CIPDInput = slice.Properties.CIPDInput
-	b.Command = slice.Properties.Command
-	//b.Containment = slice.Properties.Containment
-	// ...
+func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
+	p := &t.TaskSlices[slice].Properties
+	b.Caches = make([]botPollCache, len(p.Caches))
+	for i := range p.Caches {
+		b.Caches[i].Name = p.Caches[i].Name
+		b.Caches[i].Path = p.Caches[i].Path
+		b.Caches[i].Hint = 0 // TODO(maruel): Calculate.
+	}
+	b.CIPDInput.ClientPackage.fromDB(&p.CIPDClient)
+	b.CIPDInput.Packages = make([]botCIPDPackage, len(p.CIPDPackages))
+	for i := range p.CIPDPackages {
+		b.CIPDInput.Packages[i].fromDB(&p.CIPDPackages[i])
+	}
+	b.Command = p.Command
+	// TODO(maruel): b.Containment
+	b.Dimensions = messapi.ToStringPairs(p.Dimensions)
+	b.Env = messapi.ToStringPairs(p.Env)
+	b.EnvPrefixes = messapi.ToStringListPairs(p.EnvPrefixes)
+	b.GracePeriod = int64(p.GracePeriod / time.Second)
+	b.HardTimeout = int64(p.HardTimeout / time.Second)
+	b.IOTimeout = int64(p.IOTimeout / time.Second)
+	// TODO(maruel): SecretBytes = // base64
+	b.CASInputRoot.CASInstance = p.CASHost
+	b.CASInputRoot.Digest = p.Input
+	b.Outputs = p.Outputs
+	b.Realm.Name = t.Realm
+	b.RelativeWD = p.RelativeWD
+	b.ResultDB.Host = "" // TODO(maruel): Add
+	b.ResultDB.CurrentInvocation.Name = ""
+	b.ResultDB.CurrentInvocation.UpdateToken = ""
+	b.ServiceAccounts.System = "none" // TODO(maruel): impersonation
+	b.ServiceAccounts.Task = "none"
 	b.TaskID = model.ToTaskID(t.Key)
 }
 
@@ -292,10 +320,22 @@ type botPollCache struct {
 	Hint int64  `json:"hint"`
 }
 
+type botCIPDPackage struct {
+	PkgName string `json:"package_name"`
+	Version string `json:"version"`
+	Path    string `json:"path"`
+}
+
+func (b *botCIPDPackage) fromDB(m *model.CIPDPackage) {
+	b.PkgName = m.PkgName
+	b.Version = m.Version
+	b.Path = m.Path
+}
+
 type botPollCIPDInput struct {
-	ClientPackage map[string]string   `json:"client_package"`
-	Packages      []map[string]string `json:"packages"`
-	Server        string              `json:"server"`
+	ClientPackage botCIPDPackage   `json:"client_package"`
+	Packages      []botCIPDPackage `json:"packages"`
+	Server        string           `json:"server"`
 }
 
 type botPollContainment struct {

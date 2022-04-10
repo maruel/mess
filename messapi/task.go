@@ -71,7 +71,7 @@ type TasksNewRequest struct {
 	//ExpirationSecs int64 `json:"expiration_secs"`
 	Name         string       `json:"name"`
 	ParentTaskID model.TaskID `json:"parent_task_id"`
-	Priority     int32        `json:"priority"`
+	Priority     Int          `json:"priority"`
 	//Properties TaskProperties `json:"properties"`
 	TaskSlices           []TaskSlice      `json:"task_slices"`
 	Tags                 []string         `json:"tags"`
@@ -93,7 +93,7 @@ func (t *TasksNewRequest) ToDB(now time.Time, m *model.TaskRequest) error {
 	// TODO(maruel): Validate!!
 	m.Name = t.Name
 	m.ParentTask = model.FromTaskID(t.ParentTaskID)
-	m.Priority = t.Priority
+	m.Priority = t.Priority.Int32()
 	m.TaskSlices = make([]model.TaskSlice, len(t.TaskSlices))
 	for i := range t.TaskSlices {
 		if err := t.TaskSlices[i].ToDB(&m.TaskSlices[i]); err != nil {
@@ -385,7 +385,7 @@ type TaskRequest struct {
 	Name         string       `json:"name"`
 	TaskID       model.TaskID `json:"task_id"`
 	ParentTaskID model.TaskID `json:"parent_task_id"`
-	Priority     int32        `json:"priority"`
+	Priority     Int          `json:"priority"`
 	//Properties TaskProperties `json:"properties"`
 	Tags                 []string    `json:"tags"`
 	Created              Time        `json:"created_ts"`
@@ -405,7 +405,7 @@ func (t *TaskRequest) FromDB(m *model.TaskRequest) {
 	t.Name = m.Name
 	t.TaskID = model.ToTaskID(m.Key)
 	t.ParentTaskID = model.ToTaskID(m.ParentTask)
-	t.Priority = m.Priority
+	t.Priority.Set32(m.Priority)
 	t.Tags = m.Tags
 	t.Created = CloudTime(m.Created)
 	t.User = m.User

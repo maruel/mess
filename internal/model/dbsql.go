@@ -157,7 +157,8 @@ func (s *sqlDB) TaskResultCount() int64 {
 
 func (s *sqlDB) TaskResultSlice(botid string, f Filter, state TaskStateQuery, sort TaskSort) ([]TaskResult, string) {
 	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() || state != TaskStateQueryAll || sort != TaskSortCreated {
-		panic("implement filters")
+		// TODO(maruel): Implement.
+		//panic("implement filters")
 	}
 	if f.Limit == 0 {
 		panic("set limit")

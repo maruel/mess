@@ -44,27 +44,40 @@ func (s *scheduler) loop(ctx context.Context) {
 	<-ctx.Done()
 }
 
-// enqueue registers a task and tries to assign it to a bot inline. Returns
+// enqueue registers a task and tries to assign it to a bot inline.
+//
+// Returns true if it got scheduled.
 // the resulting TaskResult.
-func (s *scheduler) enqueue(ctx context.Context, r *model.TaskRequest) *model.TaskResult {
+func (s *scheduler) enqueue(ctx context.Context, r *model.TaskRequest, res *model.TaskResult) bool {
 	// Try to find a bot readily available. If not, skip.
 	// TODO(maruel): Precompute task queues.
+	scheduled := false
 	s.mu.Lock()
-	// Slow naive version.
-	//for id, w := range s.bots {
-	//	// if dimensions match.
-	//}
+	// Fast path for slow naive version without precomputation.
+	for id, w := range s.bots {
+		if dimensionsMatch(r.TaskSlices[0].Properties.Dimensions, w.bot.Dimensions) {
+			w.ch <- r
+			res.BotID = id
+			res.BotVersion = w.bot.Version
+			res.BotDimensions = w.bot.Dimensions
+			// res.BotIdleSince
+			res.CurrentTaskSlice = 0
+			res.Started = time.Now().UTC()
+			res.Modified = res.Started
+			res.State = model.Running
+			scheduled = true
+			break
+		}
+	}
 	s.mu.Unlock()
-	// TODO(maruel): Store model.TaskResult.
-	return nil
+	return scheduled
 }
 
 // poll is a bot poll, waiting for tasks.
 func (s *scheduler) poll(ctx context.Context, bot *model.Bot) *model.TaskRequest {
-	// Hang for 10s initially.
-	// TODO(maruel): Increase to ~2 minutes?
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	// TODO(maruel): Look for pending tasks.
+
+	const pollHang = 2 * time.Minute
 	w := waitingBot{bot: bot, ch: make(chan *model.TaskRequest)}
 	s.mu.Lock()
 	s.bots[bot.Key] = &w
@@ -74,7 +87,7 @@ func (s *scheduler) poll(ctx context.Context, bot *model.Bot) *model.TaskRequest
 	// Wait for it.
 	var t *model.TaskRequest
 	select {
-	case <-ctx.Done():
+	case <-time.After(pollHang):
 	case t = <-w.ch:
 	}
 	s.mu.Lock()

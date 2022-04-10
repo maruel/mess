@@ -5,13 +5,12 @@ package internal
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"sort"
 	"strconv"
 	"sync"
@@ -20,32 +19,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func getHost(req *http.Request) string {
-	if req.URL.Host != "" {
-		return req.URL.Host
-	}
-	if l := req.Header.Get("X-Forwarded-Host"); l != "" {
-		return l
-	}
-	// Needed for localhost.
-	return req.Host
-}
-
-func getURL(req *http.Request) string {
-	host := getHost(req)
-	if host == "" {
-		panic(fmt.Sprintf("%# v", req))
-	}
-	scheme := req.URL.Scheme
-	if scheme == "" {
-		scheme = "http:"
-	}
-	return scheme + "//" + host
-}
-
 // GetBotVersion return the swarming_bot.zip's hashed content.
-func GetBotVersion(req *http.Request) string {
-	url := getURL(req)
+func GetBotVersion(ctx context.Context, url string) string {
 	mu.Lock()
 	v := botVersion[url]
 	mu.Unlock()
@@ -53,7 +28,7 @@ func GetBotVersion(req *http.Request) string {
 	if v != "" {
 		return v
 	}
-	GetBotZIP(req)
+	GetBotZIP(ctx, url)
 	mu.Lock()
 	v = botVersion[url]
 	mu.Unlock()
@@ -61,8 +36,7 @@ func GetBotVersion(req *http.Request) string {
 }
 
 // GetBotZIP return the swarming_bot.zip bytes.
-func GetBotZIP(req *http.Request) []byte {
-	url := getURL(req)
+func GetBotZIP(ctx context.Context, url string) []byte {
 	mu.Lock()
 	b := botCode[url]
 	mu.Unlock()
@@ -139,7 +113,7 @@ func GetBotZIP(req *http.Request) []byte {
 	}
 	mu.Unlock()
 
-	log.Ctx(req.Context()).Info().Str("url", url).Str("hash", v).
+	log.Ctx(ctx).Info().Str("url", url).Str("hash", v).
 		Int("size", len(b)).Bool("race", race).
 		Dur("ms", time.Since(s).Round(time.Millisecond/10)).
 		Msg("GetBotZIP")

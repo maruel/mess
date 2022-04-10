@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -55,11 +54,10 @@ func fetchUserInfo(bearer string, res *userInfo) error {
 	req.Header.Add("Authorization", bearer)
 	resp, err := c.Do(req)
 	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, res)
+	d := json.NewDecoder(resp.Body)
+	d.UseNumber()
+	d.DisallowUnknownFields()
+	return d.Decode(res)
 }
 
 // apiACL checks for access control.
@@ -84,12 +82,13 @@ func (s *server) apiACL(w http.ResponseWriter, r *http.Request, acl aclType) boo
 	s.mu.Lock()
 	user := s.authCache[bearer]
 	s.mu.Unlock()
+	ctx := r.Context()
 	// TODO(maruel): Keep in the database to reduce the workload on startup. Need
 	// expiration.
 	if user == nil {
 		user = &userInfo{}
 		if err := fetchUserInfo(bearer, user); err != nil {
-			log.Ctx(r.Context()).Error().Err(err).Msg("oauth2")
+			log.Ctx(ctx).Error().Err(err).Msg("oauth2")
 			sendJSONResponse(w, errorStatus{status: 403})
 			return false
 		}
@@ -101,11 +100,11 @@ func (s *server) apiACL(w http.ResponseWriter, r *http.Request, acl aclType) boo
 		sendJSONResponse(w, errorStatus{status: 403})
 		return false
 	}
-	log.Ctx(r.Context()).UpdateContext(func(c zerolog.Context) zerolog.Context {
+	log.Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
 		return c.Str("email", user.Email)
 	})
 	if !user.EmailVerified {
-		log.Ctx(r.Context()).Warn().Msg("email not verified")
+		log.Ctx(ctx).Warn().Msg("email not verified")
 		sendJSONResponse(w, errorStatus{status: 403})
 		return false
 	}
@@ -155,10 +154,11 @@ func (s *server) apiEndpoint(w http.ResponseWriter, r *http.Request) {
 		s.apiEndpointQueues(w, r)
 		return
 	}
+	ctx := r.Context()
 	if strings.HasPrefix(r.URL.Path, "/config/") {
-		log.Ctx(r.Context()).Error().Msg("TODO: implement luci config")
+		log.Ctx(ctx).Error().Msg("TODO: implement luci config")
 	}
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
@@ -167,10 +167,11 @@ func (s *server) apiEndpointServer(w http.ResponseWriter, r *http.Request) {
 	if !isMethodJSON(w, r, "GET") {
 		return
 	}
+	ctx := r.Context()
 	if r.URL.Path == "/server/details" {
 		sendJSONResponse(w, messapi.ServerDetailsResponse{
 			ServerVersion: s.version,
-			BotVersion:    internal.GetBotVersion(r),
+			BotVersion:    internal.GetBotVersion(ctx, getURL(r)),
 		})
 		return
 	}
@@ -194,11 +195,11 @@ func (s *server) apiEndpointServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/server/token" {
-		log.Ctx(r.Context()).Error().Msg("TODO: implement server token")
+		log.Ctx(ctx).Error().Msg("TODO: implement server token")
 	}
 
 	// Intentionally not implementing get_bootstrap and get_bot_config.
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
@@ -245,6 +246,7 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 	if !isMethodJSON(w, r, "GET") {
 		return
 	}
+	ctx := r.Context()
 	cloudNow := messapi.CloudTime(time.Now())
 	if r.URL.Path == "/bots/count" {
 		req := messapi.BotsCountRequest{
@@ -273,7 +275,7 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 			req.Pool = nil
 		}
 		if len(req.Pool) != 0 {
-			log.Ctx(r.Context()).Error().Interface("pool", req.Pool).Msg("TODO: implement bot pool")
+			log.Ctx(ctx).Error().Interface("pool", req.Pool).Msg("TODO: implement bot pool")
 		}
 		sendJSONResponse(w, messapi.BotsDimensionsResponse{
 			BotsDimensions: messapi.ToStringListPairs(s.getBotDimensions("")),
@@ -291,7 +293,7 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 			IsDead:        messapi.ToThreeState(r.FormValue("is_dead")),
 			IsBusy:        messapi.ToThreeState(r.FormValue("is_busy")),
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement filters")
+		log.Ctx(ctx).Error().Msg("TODO: implement filters")
 		objs, cursor := s.tables.BotGetSlice(req.Cursor, int(req.Limit))
 		items := make([]messapi.Bot, len(objs))
 		for i := range objs {
@@ -306,11 +308,12 @@ func (s *server) apiEndpointBots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
 func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	now := time.Now()
 	cloudNow := messapi.CloudTime(now)
 	if r.URL.Path == "/tasks/cancel" {
@@ -321,7 +324,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if t.Limit == 0 {
 			t.Limit = 100
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement mass cancel")
+		log.Ctx(ctx).Error().Msg("TODO: implement mass cancel")
 		sendJSONResponse(w, messapi.TasksCancelResponse{
 			Cursor:  "",
 			Now:     cloudNow,
@@ -339,7 +342,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			State: r.FormValue("state"),
 			Tags:  r.Form["tags"],
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: filters end, start, state, tags")
+		log.Ctx(ctx).Error().Msg("TODO: filters end, start, state, tags")
 		count := s.tables.TaskRequestCount()
 		sendJSONResponse(w, messapi.TasksCountResponse{
 			Count: int32(count),
@@ -385,7 +388,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			Sort:                    r.FormValue("sort"),
 			IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement State, Tags, Sort, Perf")
+		log.Ctx(ctx).Error().Msg("TODO: implement State, Tags, Sort, Perf")
 		f := model.Filter{
 			Cursor:   req.Cursor,
 			Limit:    int(req.Limit),
@@ -412,14 +415,24 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if !readPOSTJSON(w, r, &t) {
 			return
 		}
-		m := model.TaskRequest{}
+		// First, save to DB.
+		m := model.TaskRequest{SchemaVersion: 1}
 		t.ToDB(now, &m)
 		s.tables.TaskRequestAdd(&m)
-		n := s.sched.enqueue(r.Context(), &m)
-		s.tables.TaskResultSet(n)
+		n := model.TaskResult{
+			Key:            m.Key,
+			SchemaVersion:  1,
+			Modified:       now,
+			State:          model.Pending,
+			ServerVersions: []string{s.version},
+		}
+		s.tables.TaskResultSet(&n)
+		if s.sched.enqueue(ctx, &m, &n) {
+			s.tables.TaskResultSet(&n)
+		}
 		resp := messapi.TasksNewResponse{TaskID: model.ToTaskID(m.Key)}
 		resp.Request.FromDB(&m)
-		resp.Result.FromDB(&m, n)
+		resp.Result.FromDB(&m, &n)
 		sendJSONResponse(w, resp)
 		return
 	}
@@ -437,7 +450,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			Sort:                    r.FormValue("sort"),
 			IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: state, tags, sort, perf")
+		log.Ctx(ctx).Error().Msg("TODO: state, tags, sort, perf")
 		f := model.Filter{
 			Cursor:   req.Cursor,
 			Limit:    int(req.Limit),
@@ -457,11 +470,12 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
 func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	cloudNow := messapi.CloudTime(time.Now())
 	if n := strings.SplitN(r.URL.Path[len("/bot/"):], "/", 2); len(n) == 2 {
 		id := n[0]
@@ -534,7 +548,7 @@ func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
 				Sort:                    r.FormValue("sort"),
 				IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
 			}
-			log.Ctx(r.Context()).Error().Msg("TODO: State and Sort")
+			log.Ctx(ctx).Error().Msg("TODO: State and Sort")
 			f := model.Filter{
 				Cursor:   req.Cursor,
 				Limit:    int(req.Limit),
@@ -553,7 +567,7 @@ func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
 			if !readPOSTJSON(w, r, &struct{}{}) {
 				return
 			}
-			log.Ctx(r.Context()).Error().Msg("TODO: implement terminate bot")
+			log.Ctx(ctx).Error().Msg("TODO: implement terminate bot")
 			sendJSONResponse(w, messapi.BotTerminateResponse{
 				TaskID: "",
 			})
@@ -561,11 +575,12 @@ func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
 func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if n := strings.SplitN(r.URL.Path[len("/task/"):], "/", 2); len(n) == 2 {
 		id := model.FromTaskID(model.TaskID(n[0]))
 		if id == 0 {
@@ -580,7 +595,7 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 			}
 			t := model.TaskResult{}
 			s.tables.TaskResultGet(id, &t)
-			log.Ctx(r.Context()).Error().Msg("TODO: implement cancel")
+			log.Ctx(ctx).Error().Msg("TODO: implement cancel")
 			sendJSONResponse(w, messapi.TaskCancelResponse{
 				Ok:         false,
 				WasRunning: t.State == model.Running,
@@ -619,7 +634,7 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 				Offset: messapi.ToInt64(r.FormValue("offset"), 0),
 				Length: messapi.ToInt64(r.FormValue("length"), 16*1000*1024),
 			}
-			log.Ctx(r.Context()).Error().Msg("TODO: implement stdout")
+			log.Ctx(ctx).Error().Msg("TODO: implement stdout")
 			sendJSONResponse(w, messapi.TaskStdoutResponse{
 				Output: "",
 				State:  messapi.Pending,
@@ -628,7 +643,7 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
@@ -637,17 +652,18 @@ func (s *server) apiEndpointQueues(w http.ResponseWriter, r *http.Request) {
 	if !isMethodJSON(w, r, "GET") {
 		return
 	}
+	ctx := r.Context()
 	if r.URL.Path == "/queues/list" {
 		_ = messapi.TaskQueuesListRequest{
 			Limit:  messapi.ToInt64(r.FormValue("limit"), 200),
 			Cursor: r.FormValue("cursor"),
 		}
-		log.Ctx(r.Context()).Error().Msg("TODO: implement query task queues")
+		log.Ctx(ctx).Error().Msg("TODO: implement query task queues")
 		sendJSONResponse(w, messapi.TaskQueuesListResponse{})
 		return
 	}
 
-	log.Ctx(r.Context()).Warn().Msg("Unknown client request")
+	log.Ctx(ctx).Warn().Msg("Unknown client request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 

@@ -291,3 +291,26 @@ func isLocal(r *http.Request) bool {
 	}
 	return true
 }
+
+func getHost(req *http.Request) string {
+	if req.URL.Host != "" {
+		return req.URL.Host
+	}
+	if l := req.Header.Get("X-Forwarded-Host"); l != "" {
+		return l
+	}
+	// Needed for localhost.
+	return req.Host
+}
+
+func getURL(req *http.Request) string {
+	host := getHost(req)
+	if host == "" {
+		panic(fmt.Sprintf("%# v", req))
+	}
+	scheme := req.URL.Scheme
+	if scheme == "" {
+		scheme = "http:"
+	}
+	return scheme + "//" + host
+}

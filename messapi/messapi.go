@@ -19,6 +19,27 @@ func CloudTime(t time.Time) Time {
 	return Time(t.UTC().Format("2006-01-02T15:04:05"))
 }
 
+// Int is a CloudEndpoint integer
+type Int string
+
+func (i Int) Int32() int32 {
+	v, _ := strconv.ParseInt(string(i), 32, 10)
+	return int32(v)
+}
+
+func (i Int) Int64() int64 {
+	v, _ := strconv.ParseInt(string(i), 64, 10)
+	return v
+}
+
+func (i Int) Set32(v int32) {
+	i = Int(strconv.FormatInt(int64(v), 10))
+}
+
+func (i Int) Set64(v int64) {
+	i = Int(strconv.FormatInt(v, 10))
+}
+
 // StringPair is a key value item.
 type StringPair struct {
 	Key   string `json:"key"`

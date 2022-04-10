@@ -179,7 +179,8 @@ type ContainmentType int
 
 // Valid ContainmentType.
 const (
-	ContainmentNone ContainmentType = iota
+	ContainmentNotSpecified ContainmentType = iota
+	ContainmentNone
 	ContainmentAuto
 	ContainmentJobObject
 )

@@ -11,7 +11,7 @@ import (
 type TasksCancelRequest struct {
 	Tags        []string `json:"tags"`
 	Cursor      string   `json:"cursor"`
-	Limit       int64    `json:"limit"`
+	Limit       Int      `json:"limit"`
 	KillRunning bool     `json:"kill_running"`
 	End         float64  `json:"end"`
 }
@@ -20,7 +20,7 @@ type TasksCancelRequest struct {
 type TasksCancelResponse struct {
 	Cursor  string `json:"cursor"`
 	Now     Time   `json:"now"`
-	Matched int64  `json:"matched"`
+	Matched Int    `json:"matched"`
 }
 
 // TasksCountRequest is /tasks/count (GET).
@@ -68,7 +68,7 @@ type TasksListResponse struct {
 
 // TasksNewRequest is /tasks/new (POST).
 type TasksNewRequest struct {
-	//ExpirationSecs int64 `json:"expiration_secs"`
+	//ExpirationSecs Int `json:"expiration_secs"`
 	Name         string       `json:"name"`
 	ParentTaskID model.TaskID `json:"parent_task_id"`
 	Priority     Int          `json:"priority"`
@@ -82,7 +82,7 @@ type TasksNewRequest struct {
 	PubSubUserData       string           `json:"pubsub_userdata"`
 	EvaluateOnly         bool             `json:"evaluate_only"`
 	PoolTaskTemplate     PoolTaskTemplate `json:"pool_task_template"`
-	BotPingToleranceSecs int64            `json:"bot_ping_telerance_secs"`
+	BotPingToleranceSecs Int              `json:"bot_ping_telerance_secs"`
 	RequestUUID          string           `json:"request_uuid"`
 	ResultDB             ResultDBCfg      `json:"resultdb"`
 	Realm                string           `json":realm"`
@@ -186,19 +186,19 @@ type TaskQueuesListResponse struct {
 // Digest is a CAS reference.
 type Digest struct {
 	Hash string `json:"hash"`
-	Size int64  `json:"size_bytes"`
+	Size Int    `json:"size_bytes"`
 }
 
 // ToDB converts the Digest to DB's format.
 func (d *Digest) ToDB(m *model.Digest) error {
-	m.Size = d.Size
+	m.Size = d.Size.Int64()
 	_, err := hex.Decode(m.Hash[:], []byte(d.Hash))
 	return err
 }
 
 // FromDB converts the Digest from DB's format.
 func (d *Digest) FromDB(m *model.Digest) {
-	d.Size = m.Size
+	d.Size.Set64(m.Size)
 	d.Hash = hex.EncodeToString(m.Hash[:])
 }
 
@@ -217,8 +217,8 @@ type CIPDInput struct {
 
 // CIPDPins is a LUCI CIPD resolved reference.
 type CIPDPins struct {
-	ClientPkg CIPDPackage `json:"client_package"`
-	Pkgs      CIPDPackage `json:"packages"`
+	ClientPkg CIPDPackage   `json:"client_package"`
+	Pkgs      []CIPDPackage `json:"packages"`
 }
 
 // CIPDPackage is a LUCI CIPD package.
@@ -249,7 +249,7 @@ type Cache struct {
 }
 
 // ContainmentType declares the type of process containment the bot shall do.
-type ContainmentType = model.ContainmentType
+type ContainmentType string
 
 // Valid ContainmentType.
 const (
@@ -257,6 +257,32 @@ const (
 	ContainmentAuto      = model.ContainmentAuto
 	ContainmentJobObject = model.ContainmentJobObject
 )
+
+func (c ContainmentType) ToDB() model.ContainmentType {
+	switch c {
+	case "NONE":
+		return model.ContainmentNone
+	case "AUTO":
+		return model.ContainmentAuto
+	case "JOB_OBJECT":
+		return model.ContainmentJobObject
+	default:
+		return model.ContainmentNotSpecified
+	}
+}
+
+func (c *ContainmentType) FromDB(m model.ContainmentType) {
+	switch m {
+	case model.ContainmentNone:
+		*c = "NONE"
+	case model.ContainmentAuto:
+		*c = "AUTO"
+	case model.ContainmentJobObject:
+		*c = "JOB_OBJECT"
+	default:
+		*c = "NOT_SPECIFIED"
+	}
+}
 
 // Containment declares the type of process containment the bot shall do.
 type Containment struct {
@@ -272,11 +298,11 @@ type TaskProperties struct {
 	Dimensions      []StringPair     `json:"dimensions"`
 	Env             []StringPair     `json:"env"`
 	EnvPrefixes     []StringListPair `json:"env_prefixes"`
-	HardTimeoutSecs int64            `json:"execution_timeout_secs"`
-	GracePeriodSecs int64            `json:"grace_period_secs"`
+	HardTimeoutSecs Int              `json:"execution_timeout_secs"`
+	GracePeriodSecs Int              `json:"grace_period_secs"`
 	Idempotent      bool             `json:"idempotent"`
 	CASInputRoot    CASReference     `json:"cas_input_root"`
-	IOTimeoutSecs   int64            `json:"io_timeout_secs"`
+	IOTimeoutSecs   Int              `json:"io_timeout_secs"`
 	Outputs         []string         `json:"outputs"`
 	SecretBytes     []byte           `json:"secret_bytes"`
 	Containment     Containment      `json:"containment"`
@@ -300,15 +326,15 @@ func (t *TaskProperties) FromDB(m *model.TaskProperties) {
 	t.Dimensions = ToStringPairs(m.Dimensions)
 	t.Env = ToStringPairs(m.Env)
 	t.EnvPrefixes = ToStringListPairs(m.EnvPrefixes)
-	t.HardTimeoutSecs = int64(m.HardTimeout / time.Second)
-	t.GracePeriodSecs = int64(m.GracePeriod / time.Second)
+	t.HardTimeoutSecs.Set64(int64(m.HardTimeout / time.Second))
+	t.GracePeriodSecs.Set64(int64(m.GracePeriod / time.Second))
 	t.Idempotent = m.Idempotent
 	t.CASInputRoot.Host = m.CASHost
 	t.CASInputRoot.Digest.FromDB(&m.Input)
-	t.IOTimeoutSecs = int64(m.IOTimeout / time.Second)
+	t.IOTimeoutSecs.Set64(int64(m.IOTimeout / time.Second))
 	t.Outputs = m.Outputs
 	// t.SecretBytes Never read back.
-	t.Containment.ContainmentType = m.Containment.ContainmentType
+	t.Containment.ContainmentType.FromDB(m.Containment.ContainmentType)
 }
 
 // ToDB converts the API to the model.
@@ -329,29 +355,29 @@ func (t *TaskProperties) ToDB(m *model.TaskProperties) error {
 	t.Dimensions = ToStringPairs(m.Dimensions)
 	m.Env = FromStringPairs(t.Env)
 	m.EnvPrefixes = FromStringListPairs(t.EnvPrefixes)
-	m.HardTimeout = time.Duration(t.HardTimeoutSecs) * time.Second
-	m.GracePeriod = time.Duration(t.GracePeriodSecs) * time.Second
+	m.HardTimeout = time.Duration(t.HardTimeoutSecs.Int64()) * time.Second
+	m.GracePeriod = time.Duration(t.GracePeriodSecs.Int64()) * time.Second
 	m.Idempotent = t.Idempotent
 	m.CASHost = t.CASInputRoot.Host
 	t.CASInputRoot.Digest.ToDB(&m.Input)
-	m.IOTimeout = time.Duration(t.IOTimeoutSecs) * time.Second
+	m.IOTimeout = time.Duration(t.IOTimeoutSecs.Int64()) * time.Second
 	m.Outputs = t.Outputs
 	m.SecretBytes = t.SecretBytes
-	m.Containment.ContainmentType = t.Containment.ContainmentType
+	m.Containment.ContainmentType = t.Containment.ContainmentType.ToDB()
 	return nil
 }
 
 // TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
 	Properties      TaskProperties `json:"properties"`
-	ExpirationSecs  int64          `json:"expiration_secs"`
+	ExpirationSecs  Int            `json:"expiration_secs"`
 	WaitForCapacity bool           `json:"wait_for_capacity"`
 }
 
 // FromDB converts the model to the API.
 func (t *TaskSlice) FromDB(m *model.TaskSlice) {
 	t.Properties.FromDB(&m.Properties)
-	t.ExpirationSecs = int64(m.Expiration / time.Second)
+	t.ExpirationSecs.Set64(int64(m.Expiration / time.Second))
 	t.WaitForCapacity = m.WaitForCapacity
 }
 
@@ -397,7 +423,7 @@ type TaskRequest struct {
 	ResultDB             ResultDBCfg `json:"resultdb"`
 	PubSubTopic          string      `json:"pubsub_topic"`
 	PubSubUserData       string      `json:"pubsub_userdata"`
-	BotPingToleranceSecs int64       `json:"bot_ping_telerance_secs"`
+	BotPingToleranceSecs Int         `json:"bot_ping_telerance_secs"`
 }
 
 // FromDB converts the model to the API.
@@ -481,8 +507,8 @@ type OperationStats struct {
 // CASOperationStats is RBE-CAS operation.
 type CASOperationStats struct {
 	Duration        float64 `json:"duration"`
-	InitialNumItems int64   `json:"initial_number_items"`
-	InitialSize     int64   `json:"initial_size"`
+	InitialNumItems Int     `json:"initial_number_items"`
+	InitialSize     Int     `json:"initial_size"`
 	ItemsCold       []byte  `json:"items_cold"` // zlib deflated varints.
 	ItemsHot        []byte  `json:"items_hot"`
 	NumItemsCold    int     `json:"num_items_cold"`
@@ -514,7 +540,7 @@ type TaskResult struct {
 	Created          Time             `json:"created_ts"`
 	DedupedFrom      model.TaskID     `json:"deduped_from"`
 	DurationSecs     float64          `json:"duration"`
-	ExitCode         int32            `json:"exit_code"`
+	ExitCode         Int              `json:"exit_code"`
 	Failure          bool             `json:"failure"`
 	InternalFailure  bool             `json:"internal_failure"`
 	Modified         Time             `json:"modified_ts"`
@@ -523,7 +549,7 @@ type TaskResult struct {
 	Started          Time             `json:"started_ts"`
 	State            TaskState        `json:"state"`
 	TaskID           model.TaskID     `json:"task_id"`
-	TryNumber        int32            `json:"try_number"`
+	TryNumber        Int              `json:"try_number"`
 	CostsUSD         []float64        `json:"costs_usd"`
 	Name             string           `json:"name"`
 	Tags             []string         `json:"tags"`
@@ -531,7 +557,7 @@ type TaskResult struct {
 	Perf             TaskPerfStats    `json:"performance_stats"`
 	CIPDPins         CIPDPins         `json:"cipd_pins"`
 	RunID            model.TaskID     `json:"run_id"`
-	CurrentTaskSlice int32            `json:"current_task_slice"`
+	CurrentTaskSlice Int              `json:"current_task_slice"`
 	ResultDB         ResultDB         `json:"resultdb_info"`
 }
 
@@ -551,7 +577,7 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
 	t.Created = CloudTime(r.Created)
 	t.DedupedFrom = model.ToTaskID(m.DedupedFrom)
 	t.DurationSecs = float64(m.Duration) / float64(time.Second)
-	t.ExitCode = m.ExitCode
+	t.ExitCode.Set32(m.ExitCode)
 	t.Failure = m.ExitCode != 0
 	t.InternalFailure = m.InternalFailure != ""
 	t.Modified = CloudTime(m.Modified)
@@ -562,17 +588,20 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
 	t.Started = CloudTime(m.Started)
 	t.State = FromDBTaskState(m.State)
 	t.TaskID = model.ToTaskID(m.Key)
-	t.TryNumber = 0
+	t.TryNumber.Set32(0)
 	if m.State != model.Pending {
-		t.TryNumber = 1
+		t.TryNumber.Set32(1)
 	}
 	t.CostsUSD = []float64{}
 	t.Name = r.Name
 	t.Tags = r.Tags
 	t.User = r.User
 	//t.Perf
-	panic("TODO")
-	//t.CIPDPins.Pkgs = m.CIPDPins
+	t.CIPDPins.ClientPkg.FromDB(&m.CIPDClientUsed)
+	t.CIPDPins.Pkgs = make([]CIPDPackage, len(m.CIPDPins))
+	for i := range m.CIPDPins {
+		t.CIPDPins.Pkgs[i].FromDB(&m.CIPDPins[i])
+	}
 	t.RunID = t.TaskID // No difference in mess.
 	t.CurrentTaskSlice = t.CurrentTaskSlice
 	t.ResultDB.Host = m.ResultDB.Host

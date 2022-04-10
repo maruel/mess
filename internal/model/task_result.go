@@ -23,16 +23,17 @@ type TaskResult struct {
 	State            TaskState           `json:"n"`
 	Children         []int64             `json:"o"`
 	Output           Digest              `json:"p"`
-	CIPDPins         []CIPDPackage       `json:"q"`
-	ResultDB         ResultDB            `json:"r"`
-	Duration         time.Duration       `json:"s"`
-	Started          time.Time           `json:"t"`
-	Completed        time.Time           `json:"u"`
-	Abandoned        time.Time           `json:"v"`
-	Modified         time.Time           `json:"w"`
-	Cost             float64             `json:"x"`
-	Killing          bool                `json:"y"`
-	DeadAfter        time.Time           `json:"z"`
+	CIPDClientUsed   CIPDPackage         `json:"q"`
+	CIPDPins         []CIPDPackage       `json:"r"`
+	ResultDB         ResultDB            `json:"s"`
+	Duration         time.Duration       `json:"t"`
+	Started          time.Time           `json:"u"`
+	Completed        time.Time           `json:"v"`
+	Abandoned        time.Time           `json:"w"`
+	Modified         time.Time           `json:"x"`
+	Cost             float64             `json:"y"`
+	Killing          bool                `json:"z"`
+	DeadAfter        time.Time           `json:"aa"`
 }
 
 type taskResultSQL struct {
@@ -69,6 +70,7 @@ func (r *taskResultSQL) from(t *TaskResult) {
 		State:            t.State,
 		Children:         t.Children,
 		Output:           t.Output,
+		CIPDClientUsed:   t.CIPDClientUsed,
 		CIPDPins:         t.CIPDPins,
 		ResultDB:         t.ResultDB,
 		Duration:         t.Duration,
@@ -108,6 +110,7 @@ func (r *taskResultSQL) to(t *TaskResult) {
 	t.State = b.State
 	t.Children = b.Children
 	t.Output = b.Output
+	t.CIPDClientUsed = b.CIPDClientUsed
 	t.CIPDPins = b.CIPDPins
 	t.ResultDB = b.ResultDB
 	t.Duration = b.Duration
@@ -149,16 +152,17 @@ type taskResultSQLBlob struct {
 	State            TaskState           `json:"k"`
 	Children         []int64             `json:"l"`
 	Output           Digest              `json:"m"`
-	CIPDPins         []CIPDPackage       `json:"n"`
-	ResultDB         ResultDB            `json:"o"`
-	Duration         time.Duration       `json:"p"`
-	Started          time.Time           `json:"q"`
-	Completed        time.Time           `json:"r"`
-	Abandoned        time.Time           `json:"s"`
-	Modified         time.Time           `json:"t"`
-	Cost             float64             `json:"u"`
-	Killing          bool                `json:"v"`
-	DeadAfter        time.Time           `json:"w"`
+	CIPDClientUsed   CIPDPackage         `json:"n"`
+	CIPDPins         []CIPDPackage       `json:"o"`
+	ResultDB         ResultDB            `json:"p"`
+	Duration         time.Duration       `json:"q"`
+	Started          time.Time           `json:"r"`
+	Completed        time.Time           `json:"s"`
+	Abandoned        time.Time           `json:"t"`
+	Modified         time.Time           `json:"u"`
+	Cost             float64             `json:"v"`
+	Killing          bool                `json:"w"`
+	DeadAfter        time.Time           `json:"x"`
 }
 
 // TaskState is the state of the task request.

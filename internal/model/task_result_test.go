@@ -122,6 +122,11 @@ func getTaskResult() *TaskResult {
 			Size: 101,
 			Hash: [32]byte{1},
 		},
+		CIPDClientUsed: CIPDPackage{
+			PkgName: "clientpkg",
+			Version: "pkgv1",
+			Path:    "client",
+		},
 		CIPDPins: []CIPDPackage{
 			{
 				PkgName: "pkg1",

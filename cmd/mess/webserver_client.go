@@ -321,14 +321,14 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if !readPOSTJSON(w, r, &t) {
 			return
 		}
-		if t.Limit == 0 {
-			t.Limit = 100
+		if t.Limit.Int64() == 0 {
+			t.Limit.Set64(100)
 		}
 		log.Ctx(ctx).Error().Msg("TODO: implement mass cancel")
 		sendJSONResponse(w, messapi.TasksCancelResponse{
 			Cursor:  "",
 			Now:     cloudNow,
-			Matched: 0,
+			Matched: "0",
 		})
 		return
 	}

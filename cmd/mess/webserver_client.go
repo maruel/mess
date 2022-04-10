@@ -42,6 +42,7 @@ type userInfo struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
 	Gender        string `json:"gender"`
+	Locale        string `json:"locale"`
 }
 
 // fetchUserInfo fetches the user info for a logged in user.
@@ -363,10 +364,10 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			// TODO(maruel): Be more efficient.
 			id := model.FromTaskID(model.TaskID(tid))
 			if id == 0 {
-				out[i] = messapi.BotDied
+				out[i] = "BOT_DIED"
 			} else {
 				s.tables.TaskResultGet(id, &res)
-				out[i] = messapi.FromDBTaskState(res.State)
+				out[i].FromDB(res.State)
 			}
 		}
 		sendJSONResponse(w, messapi.TasksGetStateResponse{
@@ -415,9 +416,15 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if !readPOSTJSON(w, r, &t) {
 			return
 		}
-		// First, save to DB.
+		// TODO(maruel): Validate all.
 		m := model.TaskRequest{SchemaVersion: 1}
 		t.ToDB(now, &m)
+		if m.Priority == 0 {
+			m.Priority = 200
+		}
+		// TODO(maruel): Add tags from dimensions.
+
+		// First, save to DB.
 		s.tables.TaskRequestAdd(&m)
 		n := model.TaskResult{
 			Key:            m.Key,
@@ -637,7 +644,7 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 			log.Ctx(ctx).Error().Msg("TODO: implement stdout")
 			sendJSONResponse(w, messapi.TaskStdoutResponse{
 				Output: "",
-				State:  messapi.Pending,
+				State:  "PENDING",
 			})
 			return
 		}

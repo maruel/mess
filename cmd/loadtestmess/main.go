@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -142,10 +143,11 @@ func mainImpl() error {
 	stopping := time.Now()
 	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Terminating")
 	wg.Wait()
-	// Do a graceful termination via SIGINT.
 	for _, p := range procs {
-		p.Process.Signal(os.Interrupt)
+		// os.Interrupt on Windows
+		p.Process.Signal(syscall.SIGTERM)
 	}
+	// TODO(maruel): 30s grace period, then SIGKILL.
 	for _, p := range procs {
 		p.Wait()
 	}

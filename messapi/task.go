@@ -199,7 +199,11 @@ func (d *Digest) ToDB(m *model.Digest) error {
 // FromDB converts the Digest from DB's format.
 func (d *Digest) FromDB(m *model.Digest) {
 	d.Size.Set64(m.Size)
-	d.Hash = hex.EncodeToString(m.Hash[:])
+	if m.Size == 0 {
+		d.Hash = ""
+	} else {
+		d.Hash = hex.EncodeToString(m.Hash[:])
+	}
 }
 
 // CASReference is a reference to a RBE-CAS host and digest.
@@ -271,6 +275,7 @@ func (c ContainmentType) ToDB() model.ContainmentType {
 	}
 }
 
+// FromDB converts the model to the API.
 func (c *ContainmentType) FromDB(m model.ContainmentType) {
 	switch m {
 	case model.ContainmentNone:
@@ -451,47 +456,33 @@ func (t *TaskRequest) FromDB(m *model.TaskRequest) {
 //
 
 // TaskState is the state of the task request.
-type TaskState int64
+type TaskState string
 
-// FromDBTaskState converts a task state.
-func FromDBTaskState(t model.TaskState) TaskState {
-	// Values are currently the same but I expect this to change.
-	switch t {
+// FromDB converts the model to the API.
+func (t *TaskState) FromDB(m model.TaskState) {
+	switch m {
 	case model.Running:
-		return Running
+		*t = "RUNNING"
 	case model.Pending:
-		return Pending
+		*t = "PENDING"
 	case model.Expired:
-		return Expired
+		*t = "EXPIRED"
 	case model.Timedout:
-		return Timedout
+		*t = "TIMED_OUT"
 	case model.BotDied:
-		return BotDied
+		*t = "BOT_DIED"
 	case model.Canceled:
-		return Canceled
+		*t = "CANCELED"
 	case model.Completed:
-		return Completed
+		*t = "COMPLETED"
 	case model.Killed:
-		return Killed
+		*t = "KILLED"
 	case model.NoResource:
-		return NoResource
+		*t = "NO_RESOURCE"
 	default:
-		return BotDied
+		*t = "BOT_DIED"
 	}
 }
-
-// Valid TaskState.
-const (
-	Running TaskState = iota
-	Pending
-	Expired
-	Timedout
-	BotDied
-	Canceled
-	Completed
-	Killed
-	NoResource
-)
 
 // ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
@@ -522,9 +513,14 @@ type TaskPerfStats struct {
 	CASUpload            CASOperationStats `json:"isolated_upload"`
 	PkgInstallation      OperationStats    `json:"package_installation"`
 	CacheTrim            OperationStats    `json:"cache_trim"`
-	NamnedCachesInstall  OperationStats    `json:"namned_caches_install"`
+	NamnedCachesInstall  OperationStats    `json:"named_caches_install"`
 	NamedCachesUninstall OperationStats    `json:"named_caches_uninstall"`
 	Cleanup              OperationStats    `json:"cleanup"`
+}
+
+// FromDB converts the model to the API.
+func (t *TaskPerfStats) FromDB() {
+	// TODO(maruel): yo.
 }
 
 // TaskResult is the result of running a TaskRequest.
@@ -545,7 +541,7 @@ type TaskResult struct {
 	InternalFailure  bool             `json:"internal_failure"`
 	Modified         Time             `json:"modified_ts"`
 	CASOutput        CASReference     `json:"cas_output_root"`
-	ServerVersions   []string         `json:"server_verions"`
+	ServerVersions   []string         `json:"server_versions"`
 	Started          Time             `json:"started_ts"`
 	State            TaskState        `json:"state"`
 	TaskID           model.TaskID     `json:"task_id"`
@@ -586,7 +582,7 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
 	t.CASOutput.Digest.FromDB(&m.Output)
 	t.ServerVersions = m.ServerVersions
 	t.Started = CloudTime(m.Started)
-	t.State = FromDBTaskState(m.State)
+	t.State.FromDB(m.State)
 	t.TaskID = model.ToTaskID(m.Key)
 	t.TryNumber.Set32(0)
 	if m.State != model.Pending {
@@ -596,7 +592,7 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
 	t.Name = r.Name
 	t.Tags = r.Tags
 	t.User = r.User
-	//t.Perf
+	t.Perf.FromDB()
 	t.CIPDPins.ClientPkg.FromDB(&m.CIPDClientUsed)
 	t.CIPDPins.Pkgs = make([]CIPDPackage, len(m.CIPDPins))
 	for i := range m.CIPDPins {

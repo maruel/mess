@@ -16,6 +16,9 @@ type Time string
 
 // CloudTime converts a time object into the formatted string.
 func CloudTime(t time.Time) Time {
+	if t.IsZero() {
+		return ""
+	}
 	return Time(t.UTC().Format("2006-01-02T15:04:05"))
 }
 

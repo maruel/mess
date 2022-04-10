@@ -11,6 +11,7 @@ Work in progress.
 
 ## Goals
 
+- Drop-in replacement for a Swarming server, change the URL and it's a go.
 - Scale to 20000 bots as a single homed server.
 - Resilient (versus high availability).
 - Very fast shutdown and restart time. Target: <1min
@@ -34,10 +35,10 @@ Work in progress.
 
 ### Works
 
-- Bot:
-  - `swarming_bot.zip` generation. Unmodified from
-    [upstream](https://chromium.googlesource.com/infra/luci/luci-py/+/HEAD/appengine/swarming/swarming_bot/)!
-  - Bot code delivery.
+- Bot. Unmodified from
+  [upstream](https://chromium.googlesource.com/infra/luci/luci-py/+/HEAD/appengine/swarming/swarming_bot/)!
+  - `swarming_bot.zip` generation.
+  - Bot code delivery: curl and run!
   - Bot versioning based on schema, host and port.
   - Bot self-update.
   - Bot events.
@@ -47,17 +48,17 @@ Work in progress.
 - Web UI. Unmodified from
   [upstream](https://chromium.googlesource.com/infra/luci/luci-py/+/HEAD/appengine/swarming/ui2/)!
   - Dimensions prefill in /botlist and /tasklist
-- Google Acccount OAuth2 based login.
+- Google Acccount OAuth2 based login!
 - Two DB backends!
   - [Sqlite3](https://pkg.go.dev/github.com/mattn/go-sqlite3).
   - In-memory with JSON serialization.
-- Structured logging with [zerolog](https://pkg.go.dev/github.com/rs/zerolog).
-- Primitive task scheduling.
-- Primitive ACL.
-- HTTPS (fronted with caddy) or localhost.
+- Structured logging with [zerolog](https://pkg.go.dev/github.com/rs/zerolog)!
 - Server version generation based on [go1.18
   buildinfo](https://tip.golang.org/doc/go1.18#debug/buildinfo).
   - Includes "tainted" versioning when there's local modifications.
+- HTTPS (fronted with caddy) or localhost.
+- Primitive task scheduling.
+- Primitive ACL.
 
 ### Not working
 
@@ -92,6 +93,7 @@ Work in progress.
   - Expiring tasks.
   - Data eviction, deleting old tasks and bots after 18 months (or less).
 - Monitoring time series.
+  - Should be trivial to compared on how hard it was on AppEngine.
 - BigQuery export.
 - DDoS protection.
 - Injecting HTTP 500s randomly. I really want the client to be resilient.
@@ -152,13 +154,13 @@ swarming trigger -S http://localhost:7899 -d os=Ubuntu -d pool=default \
 
 Here's the vaporware ideas:
 
-- Offloading read-only data to append-only DB. Reduce the strain on primary DB.
+- Options if we need to scale up more (unlikely):
+  - Offloading read-only data to append-only DB. Reduce the strain on primary
+    DB.
+  - Sidecar server that serves immutable data (as soon as the task is
+    completed), reducing workload on the primary server.
+  - Separate client API and bot API into separate servers.
+    - A client DDoS wouldn't affect bots execution.
+    - Reduces network connections per VM, probably can help 2x scale.
 - Exposing the RBE API as a gRPC server. Provides an incremental path to migrate
-  to RBE, deprecating the funky Swarming CloudEndpoint API.
-- Sidecar server that servers the immutable data (as soon as the task is
-  completed), reducing workload on the primary server. Would have to look at
-  current workload to see if it's valuable, I don't think so.
-- Split servers that implements client API versus bot API. Unlikely needed.
-  - A client DDoS wouldn't affect bots execution.
-  - Can scale to 3 VMs, improving scalability by 2x (e.g. reaching to 50000
-    bots region).
+  to RBE! Deprecating the funky Swarming CloudEndpoint API.

@@ -184,11 +184,39 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 			sendJSONResponse(w, errorStatus{status: 400, err: err})
 			return
 		}
-		/* Only when state changes.
-		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "task_update", btr.Message)
-		s.tables.BotEventAdd(&e)
-		*/
+		// TODO(maruel): Enforce server-side known bot-task mapping.
+		id := model.FromTaskID(btr.TaskID)
+		if id == 0 {
+			sendJSONResponse(w, errorStatus{status: 400, err: errors.New("bad task id")})
+			return
+		}
+		// TODO(maruel): s.tables.SetTaskOutput(id, btr.OutputChunkStart, btr.Output)
+		obj := model.TaskResult{}
+		s.tables.TaskResultGet(id, &obj)
+		if btr.DurationSecs != 0 {
+			e := model.BotEvent{}
+			e.InitFrom(&bot, now, "task_completed", string(btr.TaskID))
+			s.tables.BotEventAdd(&e)
+			if btr.HardTimeout || btr.IOTimeout {
+				obj.State = model.Timedout
+			} else {
+				obj.State = model.Completed
+			}
+			obj.ExitCode = btr.ExitCode
+			obj.Duration = time.Duration(btr.DurationSecs * float64(time.Second)).Round(time.Millisecond)
+			/*
+				BotOverheadSecs  float64     `json:"bot_overhead"`
+				CacheTrimStats   interface{} `json:"cache_trim_stats"`
+				CASOutputRoot    interface{} `json:"cas_output_root"`
+				CIPDPins         interface{} `json:"cipd_pins"`
+				CIPDStats        interface{} `json:"cipd_stats"`
+				CleanupStats     interface{} `json:"cleanup_stats"`
+				CostUSD          float64     `json:"cost_usd"`
+				IsolatedStats    interface{} `json:"isolated_stats"`
+				NamedCachesStats interface{} `json:"named_caches_stats"`
+			*/
+			s.tables.TaskResultSet(&obj)
+		}
 		sendJSONResponse(w, botTaskUpdateResponse{Ok: true})
 		return
 	}
@@ -464,23 +492,23 @@ type botIDTokenResponse struct {
 // botTaskUpdateRequest is arguments for /swarming/api/v1/bot/task_update.
 type botTaskUpdateRequest struct {
 	botCommonRequest
-	BotOverheadSecs  float64     `json:"bot_overhead"`
-	CacheTrimStats   interface{} `json:"cache_trim_stats"`
-	CASOutputRoot    interface{} `json:"cas_output_root"`
-	CIPDPins         interface{} `json:"cipd_pins"`
-	CIPDStats        interface{} `json:"cipd_stats"`
-	CleanupStats     interface{} `json:"cleanup_stats"`
-	CostUSD          float64     `json:"cost_usd"`
-	DurationSecs     float64     `json:"duration"`
-	ExitCode         int32       `json:"exit_code"`
-	HardTimeout      bool        `json:"hard_timeout"`
-	ID               string      `json:"id"`
-	IOTimeout        bool        `json:"io_timeout"`
-	IsolatedStats    interface{} `json:"isolated_stats"`
-	NamedCachesStats interface{} `json:"named_caches_stats"`
-	Output           []byte      `json:"output"`
-	OutputChunkStart int64       `json:"output_chunk_start"`
-	TaskID           string      `json:"task_id"`
+	BotOverheadSecs  float64      `json:"bot_overhead"`
+	CacheTrimStats   interface{}  `json:"cache_trim_stats"`
+	CASOutputRoot    interface{}  `json:"cas_output_root"`
+	CIPDPins         interface{}  `json:"cipd_pins"`
+	CIPDStats        interface{}  `json:"cipd_stats"`
+	CleanupStats     interface{}  `json:"cleanup_stats"`
+	CostUSD          float64      `json:"cost_usd"`
+	DurationSecs     float64      `json:"duration"`
+	ExitCode         int32        `json:"exit_code"`
+	HardTimeout      bool         `json:"hard_timeout"`
+	ID               string       `json:"id"`
+	IOTimeout        bool         `json:"io_timeout"`
+	IsolatedStats    interface{}  `json:"isolated_stats"`
+	NamedCachesStats interface{}  `json:"named_caches_stats"`
+	Output           []byte       `json:"output"`
+	OutputChunkStart int64        `json:"output_chunk_start"`
+	TaskID           model.TaskID `json:"task_id"`
 }
 
 // botTaskUpdateResponse is arguments for /swarming/api/v1/bot/task_update.

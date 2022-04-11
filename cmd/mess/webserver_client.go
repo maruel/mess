@@ -647,15 +647,19 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 			if !isMethodJSON(w, r, "GET") {
 				return
 			}
-			_ = messapi.TaskStdoutRequest{
+			req := messapi.TaskStdoutRequest{
 				Offset: messapi.ToInt64(r.FormValue("offset"), 0),
 				Length: messapi.ToInt64(r.FormValue("length"), 16*1000*1024),
 			}
-			log.Ctx(ctx).Error().Msg("TODO: implement stdout")
-			sendJSONResponse(w, messapi.TaskStdoutResponse{
-				Output: "",
-				State:  "PENDING",
-			})
+			// TODO(maruel): This is unsafe, if there are two simultaneous requests,
+			// they will corrupt the buffer.
+			out, _ := s.outputs.ReadOutput(id, req.Offset, int(req.Length))
+			t := model.TaskResult{}
+			s.tables.TaskResultGet(id, &t)
+			// Encode? I forget.
+			resp := messapi.TaskStdoutResponse{Output: string(out)}
+			resp.State.FromDB(t.State)
+			sendJSONResponse(w, resp)
 			return
 		}
 	}

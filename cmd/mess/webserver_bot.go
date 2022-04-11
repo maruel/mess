@@ -190,7 +190,7 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 			sendJSONResponse(w, errorStatus{status: 400, err: errors.New("bad task id")})
 			return
 		}
-		// TODO(maruel): s.tables.SetTaskOutput(id, btr.OutputChunkStart, btr.Output)
+		_ = s.outputs.SetOutput(id, btr.OutputChunkStart, btr.Output)
 		obj := model.TaskResult{}
 		s.tables.TaskResultGet(id, &obj)
 		if btr.DurationSecs != 0 {

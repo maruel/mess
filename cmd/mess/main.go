@@ -136,6 +136,10 @@ func mainImpl() error {
 		fmt.Printf("\n")
 	}
 
+	outputs, err := model.NewTaskOutputs("outputs")
+	if err != nil {
+		return err
+	}
 	// Use one of sqlite or json DB backend.
 	d, err := model.NewDBSqlite3("mess.db")
 	//d, err := model.NewDBJSON("db.json.zst")
@@ -164,6 +168,7 @@ func mainImpl() error {
 		cid:       *cid,
 		allowed:   allowed,
 		tables:    d,
+		outputs:   outputs,
 		authCache: map[string]*userInfo{},
 	}
 	s.sched.init(d)
@@ -200,6 +205,11 @@ func mainImpl() error {
 				_ = d.Snapshot()
 			}
 		}
+	}()
+	wg.Add(1)
+	go func() {
+		outputs.Loop(ctx, 10000, 6*time.Minute)
+		wg.Done()
 	}()
 
 	<-done

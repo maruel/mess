@@ -31,9 +31,10 @@ type server struct {
 	cid     string
 	allowed map[string]struct{}
 
-	tables model.Tables
-	sched  scheduler
-	l      net.Listener
+	tables  model.Tables
+	outputs *model.TaskOutputs
+	sched   scheduler
+	l       net.Listener
 
 	mu        sync.Mutex
 	authCache map[string]*userInfo

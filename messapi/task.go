@@ -85,7 +85,7 @@ type TasksNewRequest struct {
 	BotPingToleranceSecs Int              `json:"bot_ping_telerance_secs"`
 	RequestUUID          string           `json:"request_uuid"`
 	ResultDB             ResultDBCfg      `json:"resultdb"`
-	Realm                string           `json":realm"`
+	Realm                string           `json:"realm"`
 }
 
 // ToDB converts the API to the model.
@@ -423,7 +423,7 @@ type TaskRequest struct {
 	Authenticated        string      `json:"authenticated,omitempty"`
 	TaskSlices           []TaskSlice `json:"task_slices,omitempty"`
 	ServiceAccount       string      `json:"service_account,omitempty"`
-	Realm                string      `json":realm,omitempty"`
+	Realm                string      `json:"realm,omitempty"`
 	ResultDB             ResultDBCfg `json:"resultdb,omitempty"`
 	PubSubTopic          string      `json:"pubsub_topic,omitempty"`
 	PubSubUserData       string      `json:"pubsub_userdata,omitempty"`
@@ -601,7 +601,7 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult, includePe
 		t.CIPDPins.Pkgs[i].FromDB(&m.CIPDPins[i])
 	}
 	t.RunID = t.TaskID // No difference in mess.
-	t.CurrentTaskSlice = t.CurrentTaskSlice
+	t.CurrentTaskSlice.Set32(m.CurrentTaskSlice)
 	t.ResultDB.Host = m.ResultDB.Host
 	t.ResultDB.Invocation = m.ResultDB.Invocation
 }

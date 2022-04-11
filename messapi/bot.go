@@ -142,7 +142,7 @@ func (b *Bot) FromDB(m *model.Bot) {
 	// TODO(maruel): b.TaskName
 	b.Version = m.Version
 	b.State = string(m.State)
-	b.Deleted = b.Deleted
+	b.Deleted = m.Deleted
 }
 
 // BotEvents is events that a bot produced.

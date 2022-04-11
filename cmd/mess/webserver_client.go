@@ -55,10 +55,14 @@ func fetchUserInfo(bearer string, res *userInfo) error {
 	}
 	req.Header.Add("Authorization", bearer)
 	resp, err := c.Do(req)
-	defer resp.Body.Close()
+	if err != nil {
+		return err
+	}
 	d := json.NewDecoder(resp.Body)
 	d.DisallowUnknownFields()
-	return d.Decode(res)
+	err = d.Decode(res)
+	resp.Body.Close()
+	return err
 }
 
 // apiACL checks for access control.

@@ -3,6 +3,7 @@ module github.com/maruel/mess
 go 1.18
 
 require (
+	github.com/fsnotify/fsnotify v1.5.1
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.7
 	github.com/klauspost/compress v1.15.1

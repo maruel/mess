@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/maruel/mess/internal/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -65,6 +66,40 @@ func configureLog() {
 	log.Logger = log.Logger.With().Caller().Logger()
 }
 
+// watchExe watches the main executable and cancel the returned context when
+// touched.
+//
+// The assumption is that the executable is run as a systemd service unit or
+// something similar that will restart the service.
+func watchExe(ctx context.Context) (context.Context, func(), error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, nil, err
+	}
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := w.Add(exe); err != nil {
+		w.Close()
+		return nil, nil, err
+	}
+	log.Debug().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Str("file", exe).Msg("file watching")
+	ctx2, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case e := <-w.Events:
+			log.Warn().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Interface("ev", e).Str("file", exe).Msg("file watching event")
+		case err2 := <-w.Errors:
+			log.Warn().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Err(err2).Str("file", exe).Msg("file watching error")
+		case <-ctx2.Done():
+		}
+		w.Close()
+		cancel()
+	}()
+	return ctx2, cancel, err
+}
+
 func mainImpl() error {
 	configureLog()
 	port := flag.Int("port", 7899, "HTTP port for the web server to listen to")
@@ -108,19 +143,20 @@ func mainImpl() error {
 		return err
 	}
 
-	wg := sync.WaitGroup{}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel, err := watchExe(context.Background())
+	if err != nil {
+		return err
+	}
 	defer cancel()
 	log.Info().Dur("ms", time.Since(started).Round(time.Millisecond)/10).Msg("Loaded DB")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	wg.Add(1)
 	go func() {
 		<-c
 		cancel()
-		wg.Done()
 	}()
 
+	wg := sync.WaitGroup{}
 	ver := getVersion()
 	s := server{
 		local:     *local,

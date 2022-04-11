@@ -13,25 +13,25 @@ import (
 
 // TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
-	Key                 int64       `json:"a"`
-	SchemaVersion       int64       `json:"b"`
-	Created             time.Time   `json:"c"`
-	Priority            int32       `json:"d"`
-	ParentTask          int64       `json:"e"`
-	Tags                []string    `json:"f"`
-	TaskSlices          []TaskSlice `json:"g"`
-	Name                string      `json:"h"`
-	ManualTags          []string    `json:"i"`
-	Authenticated       string      `json:"j"`
-	User                string      `json:"k"`
-	ServiceAccount      string      `json:"l"`
-	PubSubTopic         string      `json:"m"`
-	PubSubAuthToken     string      `json:"n"`
-	PubSubUserData      string      `json:"o"`
-	ResultDBUpdateToken string      `json:"p"`
-	Realm               string      `json:"q"`
-	ResultDB            bool        `json:"r"`
-	BuildToken          BuildToken  `json:"s"`
+	Key                 int64       `json:"a,omitempty"`
+	SchemaVersion       int64       `json:"b,omitempty"`
+	Created             time.Time   `json:"c,omitempty"`
+	Priority            int32       `json:"d,omitempty"`
+	ParentTask          int64       `json:"e,omitempty"`
+	Tags                []string    `json:"f,omitempty"`
+	TaskSlices          []TaskSlice `json:"g,omitempty"`
+	Name                string      `json:"h,omitempty"`
+	ManualTags          []string    `json:"i,omitempty"`
+	Authenticated       string      `json:"j,omitempty"`
+	User                string      `json:"k,omitempty"`
+	ServiceAccount      string      `json:"l,omitempty"`
+	PubSubTopic         string      `json:"m,omitempty"`
+	PubSubAuthToken     string      `json:"n,omitempty"`
+	PubSubUserData      string      `json:"o,omitempty"`
+	ResultDBUpdateToken string      `json:"p,omitempty"`
+	Realm               string      `json:"q,omitempty"`
+	ResultDB            bool        `json:"r,omitempty"`
+	BuildToken          BuildToken  `json:"s,omitempty"`
 }
 
 // TaskID is a task ID as presented to the user.
@@ -157,19 +157,19 @@ CREATE TABLE IF NOT EXISTS TaskRequest (
 
 // taskRequestSQLBlob contains the unindexed fields.
 type taskRequestSQLBlob struct {
-	TaskSlices          []TaskSlice `json:"a"`
-	Name                string      `json:"b"`
-	ManualTags          []string    `json:"c"`
-	Authenticated       string      `json:"d"`
-	User                string      `json:"e"`
-	ServiceAccount      string      `json:"f"`
-	PubSubTopic         string      `json:"g"`
-	PubSubAuthToken     string      `json:"h"`
-	PubSubUserData      string      `json:"i"`
-	ResultDBUpdateToken string      `json:"j"`
-	Realm               string      `json:"k"`
-	ResultDB            bool        `json:"l"`
-	BuildToken          BuildToken  `json:"m"`
+	TaskSlices          []TaskSlice `json:"a,omitempty"`
+	Name                string      `json:"b,omitempty"`
+	ManualTags          []string    `json:"c,omitempty"`
+	Authenticated       string      `json:"d,omitempty"`
+	User                string      `json:"e,omitempty"`
+	ServiceAccount      string      `json:"f,omitempty"`
+	PubSubTopic         string      `json:"g,omitempty"`
+	PubSubAuthToken     string      `json:"h,omitempty"`
+	PubSubUserData      string      `json:"i,omitempty"`
+	ResultDBUpdateToken string      `json:"j,omitempty"`
+	Realm               string      `json:"k,omitempty"`
+	ResultDB            bool        `json:"l,omitempty"`
+	BuildToken          BuildToken  `json:"m,omitempty"`
 	//BotPingTolerance time.Duration `json:""`
 	//Expiration time.Time          `json:""`
 }
@@ -187,49 +187,49 @@ const (
 
 // Containment declares the type of process containment the bot shall do.
 type Containment struct {
-	ContainmentType ContainmentType `json:"a"`
+	ContainmentType ContainmentType `json:"a,omitempty"`
 }
 
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
-	Caches       []Cache             `json:"a"`
-	Command      []string            `json:"b"`
-	RelativeWD   string              `json:"c"`
-	CASHost      string              `json:"d"`
-	Input        Digest              `json:"e"`
-	CIPDHost     string              `json:"f"`
-	CIPDClient   CIPDPackage         `json:"g"`
-	CIPDPackages []CIPDPackage       `json:"h"`
-	Dimensions   map[string]string   `json:"i"`
-	Env          map[string]string   `json:"j"`
-	EnvPrefixes  map[string][]string `json:"k"`
-	HardTimeout  time.Duration       `json:"l"`
-	GracePeriod  time.Duration       `json:"m"`
-	IOTimeout    time.Duration       `json:"n"`
-	SecretBytes  []byte              `json:"o"`
-	Idempotent   bool                `json:"p"`
-	Outputs      []string            `json:"q"`
-	Containment  Containment         `json:"r"`
+	Caches       []Cache             `json:"a,omitempty"`
+	Command      []string            `json:"b,omitempty"`
+	RelativeWD   string              `json:"c,omitempty"`
+	CASHost      string              `json:"d,omitempty"`
+	Input        Digest              `json:"e,omitempty"`
+	CIPDHost     string              `json:"f,omitempty"`
+	CIPDClient   CIPDPackage         `json:"g,omitempty"`
+	CIPDPackages []CIPDPackage       `json:"h,omitempty"`
+	Dimensions   map[string]string   `json:"i,omitempty"`
+	Env          map[string]string   `json:"j,omitempty"`
+	EnvPrefixes  map[string][]string `json:"k,omitempty"`
+	HardTimeout  time.Duration       `json:"l,omitempty"`
+	GracePeriod  time.Duration       `json:"m,omitempty"`
+	IOTimeout    time.Duration       `json:"n,omitempty"`
+	SecretBytes  []byte              `json:"o,omitempty"`
+	Idempotent   bool                `json:"p,omitempty"`
+	Outputs      []string            `json:"q,omitempty"`
+	Containment  Containment         `json:"r,omitempty"`
 }
 
 // TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
-	Properties      TaskProperties `json:"a"`
-	Expiration      time.Duration  `json:"b"`
-	WaitForCapacity bool           `json:"c"`
+	Properties      TaskProperties `json:"a,omitempty"`
+	Expiration      time.Duration  `json:"b,omitempty"`
+	WaitForCapacity bool           `json:"c,omitempty"`
 }
 
 // BuildToken is a LUCI Buildbucket token.
 type BuildToken struct {
-	BuildID         int64  `json:"a"`
-	Token           string `json:"b"`
-	BuildbucketHost string `json:"c"`
+	BuildID         int64  `json:"a,omitempty"`
+	Token           string `json:"b,omitempty"`
+	BuildbucketHost string `json:"c,omitempty"`
 }
 
 // Digest is a more memory efficient version of rbe.Digest.
 type Digest struct {
-	Size int64    `json:"a"`
-	Hash [32]byte `json:"b"`
+	Size int64    `json:"a,omitempty"`
+	Hash [32]byte `json:"b,omitempty"`
 }
 
 // ToProto converts to RBE's digest message.
@@ -251,13 +251,13 @@ func (d *Digest) FromProto(p *rbe.Digest) error {
 
 // CIPDPackage declares a LUCI CIPD package.
 type CIPDPackage struct {
-	PkgName string `json:"a"`
-	Version string `json:"b"`
-	Path    string `json:"c"`
+	PkgName string `json:"a,omitempty"`
+	Version string `json:"b,omitempty"`
+	Path    string `json:"c,omitempty"`
 }
 
 // Cache is a named cache that survives across tasks.
 type Cache struct {
-	Name string `json:"a"`
-	Path string `json:"b"`
+	Name string `json:"a,omitempty"`
+	Path string `json:"b,omitempty"`
 }

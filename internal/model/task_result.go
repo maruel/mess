@@ -7,33 +7,33 @@ import (
 
 // TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
-	Key              int64               `json:"a"`
-	SchemaVersion    int                 `json:"b"`
-	BotID            string              `json:"c"`
-	BotVersion       string              `json:"d"`
-	BotDimensions    map[string][]string `json:"e"`
-	BotIdleSince     time.Duration       `json:"f"`
-	ServerVersions   []string            `json:"g"`
-	CurrentTaskSlice int32               `json:"h"`
-	DedupedFrom      int64               `json:"i"`
-	PropertiesHash   string              `json:"j"`
-	TaskOutput       TaskOutput          `json:"k"`
-	ExitCode         int32               `json:"l"`
-	InternalFailure  string              `json:"m"`
-	State            TaskState           `json:"n"`
-	Children         []int64             `json:"o"`
-	Output           Digest              `json:"p"`
-	CIPDClientUsed   CIPDPackage         `json:"q"`
-	CIPDPins         []CIPDPackage       `json:"r"`
-	ResultDB         ResultDB            `json:"s"`
-	Duration         time.Duration       `json:"t"`
-	Started          time.Time           `json:"u"`
-	Completed        time.Time           `json:"v"`
-	Abandoned        time.Time           `json:"w"`
-	Modified         time.Time           `json:"x"`
-	Cost             float64             `json:"y"`
-	Killing          bool                `json:"z"`
-	DeadAfter        time.Time           `json:"aa"`
+	Key              int64               `json:"a,omitempty"`
+	SchemaVersion    int                 `json:"b,omitempty"`
+	BotID            string              `json:"c,omitempty"`
+	BotVersion       string              `json:"d,omitempty"`
+	BotDimensions    map[string][]string `json:"e,omitempty"`
+	BotIdleSince     time.Duration       `json:"f,omitempty"`
+	ServerVersions   []string            `json:"g,omitempty"`
+	CurrentTaskSlice int32               `json:"h,omitempty"`
+	DedupedFrom      int64               `json:"i,omitempty"`
+	PropertiesHash   string              `json:"j,omitempty"`
+	TaskOutput       TaskOutput          `json:"k,omitempty"`
+	ExitCode         int32               `json:"l,omitempty"`
+	InternalFailure  string              `json:"m,omitempty"`
+	State            TaskState           `json:"n,omitempty"`
+	Children         []int64             `json:"o,omitempty"`
+	Output           Digest              `json:"p,omitempty"`
+	CIPDClientUsed   CIPDPackage         `json:"q,omitempty"`
+	CIPDPins         []CIPDPackage       `json:"r,omitempty"`
+	ResultDB         ResultDB            `json:"s,omitempty"`
+	Duration         time.Duration       `json:"t,omitempty"`
+	Started          time.Time           `json:"u,omitempty"`
+	Completed        time.Time           `json:"v,omitempty"`
+	Abandoned        time.Time           `json:"w,omitempty"`
+	Modified         time.Time           `json:"x,omitempty"`
+	Cost             float64             `json:"y,omitempty"`
+	Killing          bool                `json:"z,omitempty"`
+	DeadAfter        time.Time           `json:"aa,omitempty"`
 }
 
 type taskResultSQL struct {
@@ -139,30 +139,30 @@ CREATE TABLE IF NOT EXISTS TaskResult (
 
 // taskResultSQLBlob contains the unindexed fields.
 type taskResultSQLBlob struct {
-	BotVersion       string              `json:"a"`
-	BotDimensions    map[string][]string `json:"b"`
-	BotIdleSince     time.Duration       `json:"c"`
-	ServerVersions   []string            `json:"d"`
-	CurrentTaskSlice int32               `json:"e"`
-	DedupedFrom      int64               `json:"f"`
-	PropertiesHash   string              `json:"g"`
-	TaskOutput       TaskOutput          `json:"h"`
-	ExitCode         int32               `json:"i"`
-	InternalFailure  string              `json:"j"`
-	State            TaskState           `json:"k"`
-	Children         []int64             `json:"l"`
-	Output           Digest              `json:"m"`
-	CIPDClientUsed   CIPDPackage         `json:"n"`
-	CIPDPins         []CIPDPackage       `json:"o"`
-	ResultDB         ResultDB            `json:"p"`
-	Duration         time.Duration       `json:"q"`
-	Started          time.Time           `json:"r"`
-	Completed        time.Time           `json:"s"`
-	Abandoned        time.Time           `json:"t"`
-	Modified         time.Time           `json:"u"`
-	Cost             float64             `json:"v"`
-	Killing          bool                `json:"w"`
-	DeadAfter        time.Time           `json:"x"`
+	BotVersion       string              `json:"a,omitempty"`
+	BotDimensions    map[string][]string `json:"b,omitempty"`
+	BotIdleSince     time.Duration       `json:"c,omitempty"`
+	ServerVersions   []string            `json:"d,omitempty"`
+	CurrentTaskSlice int32               `json:"e,omitempty"`
+	DedupedFrom      int64               `json:"f,omitempty"`
+	PropertiesHash   string              `json:"g,omitempty"`
+	TaskOutput       TaskOutput          `json:"h,omitempty"`
+	ExitCode         int32               `json:"i,omitempty"`
+	InternalFailure  string              `json:"j,omitempty"`
+	State            TaskState           `json:"k,omitempty"`
+	Children         []int64             `json:"l,omitempty"`
+	Output           Digest              `json:"m,omitempty"`
+	CIPDClientUsed   CIPDPackage         `json:"n,omitempty"`
+	CIPDPins         []CIPDPackage       `json:"o,omitempty"`
+	ResultDB         ResultDB            `json:"p,omitempty"`
+	Duration         time.Duration       `json:"q,omitempty"`
+	Started          time.Time           `json:"r,omitempty"`
+	Completed        time.Time           `json:"s,omitempty"`
+	Abandoned        time.Time           `json:"t,omitempty"`
+	Modified         time.Time           `json:"u,omitempty"`
+	Cost             float64             `json:"v,omitempty"`
+	Killing          bool                `json:"w,omitempty"`
+	DeadAfter        time.Time           `json:"x,omitempty"`
 }
 
 // TaskState is the state of the task request.
@@ -183,11 +183,11 @@ const (
 
 // ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
-	Host       string `json:"a"`
-	Invocation string `json:"b"`
+	Host       string `json:"a,omitempty"`
+	Invocation string `json:"b,omitempty"`
 }
 
 // TaskOutput stores the task's output.
 type TaskOutput struct {
-	Size int64 `json:"a"`
+	Size int64 `json:"a,omitempty"`
 }

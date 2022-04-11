@@ -7,22 +7,22 @@ import (
 
 // BotEvent is an event on a bot.
 type BotEvent struct {
-	Key           int64  `json:"a"`
-	SchemaVersion int    `json:"b"`
-	BotID         string `json:"c"`
+	Key           int64  `json:"a,omitempty"`
+	SchemaVersion int    `json:"b,omitempty"`
+	BotID         string `json:"c,omitempty"`
 	// Information about the event.
-	Time    time.Time `json:"d"`
-	Event   string    `json:"e"`
-	Message string    `json:"f"`
+	Time    time.Time `json:"d,omitempty"`
+	Event   string    `json:"e,omitempty"`
+	Message string    `json:"f,omitempty"`
 	// Information copied for the bot.
-	Version         string              `json:"g"`
-	AuthenticatedAs string              `json:"h"`
-	Dimensions      map[string][]string `json:"i"`
-	State           []byte              `json:"j"`
-	ExternalIP      string              `json:"k"`
-	TaskID          int64               `json:"l"`
-	QuarantinedMsg  string              `json:"m"`
-	MaintenanceMsg  string              `json:"n"`
+	Version         string              `json:"g,omitempty"`
+	AuthenticatedAs string              `json:"h,omitempty"`
+	Dimensions      map[string][]string `json:"i,omitempty"`
+	State           []byte              `json:"j,omitempty"`
+	ExternalIP      string              `json:"k,omitempty"`
+	TaskID          int64               `json:"l,omitempty"`
+	QuarantinedMsg  string              `json:"m,omitempty"`
+	MaintenanceMsg  string              `json:"n,omitempty"`
 }
 
 // InitFrom initializes a BotEvent from a bot.
@@ -128,14 +128,14 @@ CREATE TABLE IF NOT EXISTS BotEvent (
 
 // botEventSQLBlob contains the unindexed fields.
 type botEventSQLBlob struct {
-	Event           string              `json:"a"`
-	Message         string              `json:"b"`
-	Version         string              `json:"c"`
-	AuthenticatedAs string              `json:"d"`
-	Dimensions      map[string][]string `json:"e"`
-	State           []byte              `json:"f"`
-	ExternalIP      string              `json:"g"`
-	TaskID          int64               `json:"h"`
-	QuarantinedMsg  string              `json:"i"`
-	MaintenanceMsg  string              `json:"j"`
+	Event           string              `json:"a,omitempty"`
+	Message         string              `json:"b,omitempty"`
+	Version         string              `json:"c,omitempty"`
+	AuthenticatedAs string              `json:"d,omitempty"`
+	Dimensions      map[string][]string `json:"e,omitempty"`
+	State           []byte              `json:"f,omitempty"`
+	ExternalIP      string              `json:"g,omitempty"`
+	TaskID          int64               `json:"h,omitempty"`
+	QuarantinedMsg  string              `json:"i,omitempty"`
+	MaintenanceMsg  string              `json:"j,omitempty"`
 }

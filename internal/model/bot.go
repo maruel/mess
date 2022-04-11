@@ -10,20 +10,20 @@ const DeadAfter = 10 * time.Minute
 
 // Bot represents a bot as known by the server.
 type Bot struct {
-	Key             string              `json:"a"`
-	SchemaVersion   int                 `json:"b"`
-	Created         time.Time           `json:"c"`
-	LastSeen        time.Time           `json:"d"`
-	Version         string              `json:"e"`
-	Deleted         bool                `json:"f"`
-	Dead            bool                `json:"g"`
-	QuarantinedMsg  string              `json:"h"`
-	MaintenanceMsg  string              `json:"i"`
-	TaskID          int64               `json:"j"`
-	AuthenticatedAs string              `json:"k"`
-	Dimensions      map[string][]string `json:"l"`
-	State           []byte              `json:"m"`
-	ExternalIP      string              `json:"n"`
+	Key             string              `json:"a,omitempty"`
+	SchemaVersion   int                 `json:"b,omitempty"`
+	Created         time.Time           `json:"c,omitempty"`
+	LastSeen        time.Time           `json:"d,omitempty"`
+	Version         string              `json:"e,omitempty"`
+	Deleted         bool                `json:"f,omitempty"`
+	Dead            bool                `json:"g,omitempty"`
+	QuarantinedMsg  string              `json:"h,omitempty"`
+	MaintenanceMsg  string              `json:"i,omitempty"`
+	TaskID          int64               `json:"j,omitempty"`
+	AuthenticatedAs string              `json:"k,omitempty"`
+	Dimensions      map[string][]string `json:"l,omitempty"`
+	State           []byte              `json:"m,omitempty"`
+	ExternalIP      string              `json:"n,omitempty"`
 }
 
 type botSQL struct {
@@ -124,8 +124,8 @@ CREATE TABLE IF NOT EXISTS Bot (
 
 // botSQLBlob contains the unindexed fields.
 type botSQLBlob struct {
-	AuthenticatedAs string              `json:"a"`
-	Dimensions      map[string][]string `json:"b"`
-	State           []byte              `json:"c"`
-	ExternalIP      string              `json:"d"`
+	AuthenticatedAs string              `json:"a,omitempty"`
+	Dimensions      map[string][]string `json:"b,omitempty"`
+	State           []byte              `json:"c,omitempty"`
+	ExternalIP      string              `json:"d,omitempty"`
 }

@@ -18,9 +18,9 @@ type TasksCancelRequest struct {
 
 // TasksCancelResponse is /tasks/cancel (POST).
 type TasksCancelResponse struct {
-	Cursor  string `json:"cursor"`
-	Now     Time   `json:"now"`
-	Matched Int    `json:"matched"`
+	Cursor  string `json:"cursor,omitempty"`
+	Now     Time   `json:"now,omitempty"`
+	Matched Int    `json:"matched,omitempty"`
 }
 
 // TasksCountRequest is /tasks/count (GET).
@@ -33,8 +33,8 @@ type TasksCountRequest struct {
 
 // TasksCountResponse is /tasks/count (GET).
 type TasksCountResponse struct {
-	Count int32 `json:"count"`
-	Now   Time  `json:"now"`
+	Count int32 `json:"count,omitempty"`
+	Now   Time  `json:"now,omitempty"`
 }
 
 // TasksGetStateRequest is /tasks/get_states (GET).
@@ -44,7 +44,7 @@ type TasksGetStateRequest struct {
 
 // TasksGetStateResponse is /tasks/get_states (GET).
 type TasksGetStateResponse struct {
-	States []TaskState `json:"states"`
+	States []TaskState `json:"states,omitempty"`
 }
 
 // TasksListRequest is /tasks/list (GET).
@@ -61,9 +61,9 @@ type TasksListRequest struct {
 
 // TasksListResponse is /tasks/list (GET).
 type TasksListResponse struct {
-	Cursor string       `json:"cursor"`
-	Items  []TaskResult `json:"items"`
-	Now    Time         `json:"now"`
+	Cursor string       `json:"cursor,omitempty"`
+	Items  []TaskResult `json:"items,omitempty"`
+	Now    Time         `json:"now,omitempty"`
 }
 
 // TasksNewRequest is /tasks/new (POST).
@@ -115,9 +115,9 @@ func (t *TasksNewRequest) ToDB(now time.Time, m *model.TaskRequest) error {
 
 // TasksNewResponse is /tasks/new (POST).
 type TasksNewResponse struct {
-	Request TaskRequest  `json:"request"`
-	TaskID  model.TaskID `json:"task_id"`
-	Result  TaskResult   `json:"task_result"`
+	Request TaskRequest  `json:"request,omitempty"`
+	TaskID  model.TaskID `json:"task_id,omitempty"`
+	Result  TaskResult   `json:"task_result,omitempty"`
 }
 
 // TasksRequestsRequest is /tasks/requests (GET).
@@ -134,15 +134,15 @@ type TasksRequestsRequest struct {
 
 // TasksRequestsResponse is /tasks/requests (GET).
 type TasksRequestsResponse struct {
-	Cursor string        `json:"cursor"`
-	Items  []TaskRequest `json:"items"`
-	Now    Time          `json:"now"`
+	Cursor string        `json:"cursor,omitempty"`
+	Items  []TaskRequest `json:"items,omitempty"`
+	Now    Time          `json:"now,omitempty"`
 }
 
 // TaskCancelResponse is /task/<id>/cancel (POST).
 type TaskCancelResponse struct {
-	Ok         bool `json:"ok"`
-	WasRunning bool `json:"was_running"`
+	Ok         bool `json:"ok,omitempty"`
+	WasRunning bool `json:"was_running,omitempty"`
 }
 
 // TaskRequestResponse is /task/<id>/request (GET).
@@ -164,8 +164,8 @@ type TaskStdoutRequest struct {
 
 // TaskStdoutResponse is /task/<id>/stdout (GET).
 type TaskStdoutResponse struct {
-	Output string    `json:"output"`
-	State  TaskState `json:"state"`
+	Output string    `json:"output,omitempty"`
+	State  TaskState `json:"state,omitempty"`
 }
 
 // TaskQueuesListRequest is /queues/list (GET).
@@ -176,17 +176,17 @@ type TaskQueuesListRequest struct {
 
 // TaskQueuesListResponse is /queues/list (GET).
 type TaskQueuesListResponse struct {
-	Cursor string      `json:"cursor"`
-	Items  []TaskQueue `json:"items"`
-	Now    Time        `json:"now"`
+	Cursor string      `json:"cursor,omitempty"`
+	Items  []TaskQueue `json:"items,omitempty"`
+	Now    Time        `json:"now,omitempty"`
 }
 
 //
 
 // Digest is a CAS reference.
 type Digest struct {
-	Hash string `json:"hash"`
-	Size Int    `json:"size_bytes"`
+	Hash string `json:"hash,omitempty"`
+	Size Int    `json:"size_bytes,omitempty"`
 }
 
 // ToDB converts the Digest to DB's format.
@@ -208,28 +208,28 @@ func (d *Digest) FromDB(m *model.Digest) {
 
 // CASReference is a reference to a RBE-CAS host and digest.
 type CASReference struct {
-	Host   string `json:"cas_instance"`
-	Digest Digest `json:"digest"`
+	Host   string `json:"cas_instance,omitempty"`
+	Digest Digest `json:"digest,omitempty"`
 }
 
 // CIPDInput is a LUCI CIPD input reference.
 type CIPDInput struct {
-	Server        string        `json:"server"`
-	ClientPackage CIPDPackage   `json:"client_package"`
-	Packages      []CIPDPackage `json:"packages"`
+	Server        string        `json:"server,omitempty"`
+	ClientPackage CIPDPackage   `json:"client_package,omitempty"`
+	Packages      []CIPDPackage `json:"packages,omitempty"`
 }
 
 // CIPDPins is a LUCI CIPD resolved reference.
 type CIPDPins struct {
-	ClientPkg CIPDPackage   `json:"client_package"`
-	Pkgs      []CIPDPackage `json:"packages"`
+	ClientPkg CIPDPackage   `json:"client_package,omitempty"`
+	Pkgs      []CIPDPackage `json:"packages,omitempty"`
 }
 
 // CIPDPackage is a LUCI CIPD package.
 type CIPDPackage struct {
-	PkgName string `json:"package_name"`
-	Version string `json:"version"`
-	Path    string `json:"path"`
+	PkgName string `json:"package_name,omitempty"`
+	Version string `json:"version,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -248,8 +248,8 @@ func (t *CIPDPackage) ToDB(m *model.CIPDPackage) {
 
 // Cache is a named cache entry.
 type Cache struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name string `json:"name,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // ContainmentType declares the type of process containment the bot shall do.
@@ -291,26 +291,26 @@ func (c *ContainmentType) FromDB(m model.ContainmentType) {
 
 // Containment declares the type of process containment the bot shall do.
 type Containment struct {
-	ContainmentType ContainmentType `json:"containment_type"`
+	ContainmentType ContainmentType `json:"containment_type,omitempty"`
 }
 
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
-	Caches          []Cache          `json:"caches"`
-	CIPDInput       CIPDInput        `json:"cipd_input"`
-	Command         []string         `json:"command"`
-	RelativeWD      string           `json:"relative_cwd"`
-	Dimensions      []StringPair     `json:"dimensions"`
-	Env             []StringPair     `json:"env"`
-	EnvPrefixes     []StringListPair `json:"env_prefixes"`
-	HardTimeoutSecs Int              `json:"execution_timeout_secs"`
-	GracePeriodSecs Int              `json:"grace_period_secs"`
-	Idempotent      bool             `json:"idempotent"`
-	CASInputRoot    CASReference     `json:"cas_input_root"`
-	IOTimeoutSecs   Int              `json:"io_timeout_secs"`
-	Outputs         []string         `json:"outputs"`
-	SecretBytes     []byte           `json:"secret_bytes"`
-	Containment     Containment      `json:"containment"`
+	Caches          []Cache          `json:"caches,omitempty"`
+	CIPDInput       CIPDInput        `json:"cipd_input,omitempty"`
+	Command         []string         `json:"command,omitempty"`
+	RelativeWD      string           `json:"relative_cwd,omitempty"`
+	Dimensions      []StringPair     `json:"dimensions,omitempty"`
+	Env             []StringPair     `json:"env,omitempty"`
+	EnvPrefixes     []StringListPair `json:"env_prefixes,omitempty"`
+	HardTimeoutSecs Int              `json:"execution_timeout_secs,omitempty"`
+	GracePeriodSecs Int              `json:"grace_period_secs,omitempty"`
+	Idempotent      bool             `json:"idempotent,omitempty"`
+	CASInputRoot    CASReference     `json:"cas_input_root,omitempty"`
+	IOTimeoutSecs   Int              `json:"io_timeout_secs,omitempty"`
+	Outputs         []string         `json:"outputs,omitempty"`
+	SecretBytes     []byte           `json:"secret_bytes,omitempty"`
+	Containment     Containment      `json:"containment,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -374,9 +374,9 @@ func (t *TaskProperties) ToDB(m *model.TaskProperties) error {
 
 // TaskSlice defines one "option" to run the task.
 type TaskSlice struct {
-	Properties      TaskProperties `json:"properties"`
-	ExpirationSecs  Int            `json:"expiration_secs"`
-	WaitForCapacity bool           `json:"wait_for_capacity"`
+	Properties      TaskProperties `json:"properties,omitempty"`
+	ExpirationSecs  Int            `json:"expiration_secs,omitempty"`
+	WaitForCapacity bool           `json:"wait_for_capacity,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -407,28 +407,28 @@ const (
 
 // ResultDBCfg is used in TasksNewRequest.
 type ResultDBCfg struct {
-	Enable bool `json:"enable"`
+	Enable bool `json:"enable,omitempty"`
 }
 
 // TaskRequest is a single requested task by a client. It is immutable.
 type TaskRequest struct {
 	//ExpirationSecs int64 `json:"expiration_secs"`
-	Name         string       `json:"name"`
-	TaskID       model.TaskID `json:"task_id"`
-	ParentTaskID model.TaskID `json:"parent_task_id"`
-	Priority     Int          `json:"priority"`
-	//Properties TaskProperties `json:"properties"`
-	Tags                 []string    `json:"tags"`
-	Created              Time        `json:"created_ts"`
-	User                 string      `json:"user"`
-	Authenticated        string      `json:"authenticated"`
-	TaskSlices           []TaskSlice `json:"task_slices"`
-	ServiceAccount       string      `json:"service_account"`
-	Realm                string      `json":realm"`
-	ResultDB             ResultDBCfg `json:"resultdb"`
-	PubSubTopic          string      `json:"pubsub_topic"`
-	PubSubUserData       string      `json:"pubsub_userdata"`
-	BotPingToleranceSecs Int         `json:"bot_ping_telerance_secs"`
+	Name         string       `json:"name,omitempty"`
+	TaskID       model.TaskID `json:"task_id,omitempty"`
+	ParentTaskID model.TaskID `json:"parent_task_id,omitempty"`
+	Priority     Int          `json:"priority,omitempty"`
+	//Properties TaskProperties `json:"properties,omitempty"`
+	Tags                 []string    `json:"tags,omitempty"`
+	Created              Time        `json:"created_ts,omitempty"`
+	User                 string      `json:"user,omitempty"`
+	Authenticated        string      `json:"authenticated,omitempty"`
+	TaskSlices           []TaskSlice `json:"task_slices,omitempty"`
+	ServiceAccount       string      `json:"service_account,omitempty"`
+	Realm                string      `json":realm,omitempty"`
+	ResultDB             ResultDBCfg `json:"resultdb,omitempty"`
+	PubSubTopic          string      `json:"pubsub_topic,omitempty"`
+	PubSubUserData       string      `json:"pubsub_userdata,omitempty"`
+	BotPingToleranceSecs Int         `json:"bot_ping_telerance_secs,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -486,36 +486,36 @@ func (t *TaskState) FromDB(m model.TaskState) {
 
 // ResultDB declares the LUCI ResultDB information.
 type ResultDB struct {
-	Host       string `json:"hostname"`
-	Invocation string `json:"invocation"`
+	Host       string `json:"hostname,omitempty"`
+	Invocation string `json:"invocation,omitempty"`
 }
 
 // OperationStats is the statistic for one operation.
 type OperationStats struct {
-	DurationSecs float64 `json:"duration"`
+	DurationSecs float64 `json:"duration,omitempty"`
 }
 
 // CASOperationStats is RBE-CAS operation.
 type CASOperationStats struct {
-	Duration        float64 `json:"duration"`
-	InitialNumItems Int     `json:"initial_number_items"`
-	InitialSize     Int     `json:"initial_size"`
-	ItemsCold       []byte  `json:"items_cold"` // zlib deflated varints.
-	ItemsHot        []byte  `json:"items_hot"`
-	NumItemsCold    int     `json:"num_items_cold"`
-	NumItemsHot     int     `json:"num_items_hot"`
+	Duration        float64 `json:"duration,omitempty"`
+	InitialNumItems Int     `json:"initial_number_items,omitempty"`
+	InitialSize     Int     `json:"initial_size,omitempty"`
+	ItemsCold       []byte  `json:"items_cold,omitempty"` // zlib deflated varints.
+	ItemsHot        []byte  `json:"items_hot,omitempty"`
+	NumItemsCold    int     `json:"num_items_cold,omitempty"`
+	NumItemsHot     int     `json:"num_items_hot,omitempty"`
 }
 
 // TaskPerfStats is the performance stats for a task.
 type TaskPerfStats struct {
-	BotOverhead          OperationStats    `json:"bot_overhead"`
-	CASDownload          CASOperationStats `json:"isolated_download"`
-	CASUpload            CASOperationStats `json:"isolated_upload"`
-	PkgInstallation      OperationStats    `json:"package_installation"`
-	CacheTrim            OperationStats    `json:"cache_trim"`
-	NamnedCachesInstall  OperationStats    `json:"named_caches_install"`
-	NamedCachesUninstall OperationStats    `json:"named_caches_uninstall"`
-	Cleanup              OperationStats    `json:"cleanup"`
+	BotOverhead          OperationStats    `json:"bot_overhead,omitempty"`
+	CASDownload          CASOperationStats `json:"isolated_download,omitempty"`
+	CASUpload            CASOperationStats `json:"isolated_upload,omitempty"`
+	PkgInstallation      OperationStats    `json:"package_installation,omitempty"`
+	CacheTrim            OperationStats    `json:"cache_trim,omitempty"`
+	NamnedCachesInstall  OperationStats    `json:"named_caches_install,omitempty"`
+	NamedCachesUninstall OperationStats    `json:"named_caches_uninstall,omitempty"`
+	Cleanup              OperationStats    `json:"cleanup,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -525,36 +525,36 @@ func (t *TaskPerfStats) FromDB() {
 
 // TaskResult is the result of running a TaskRequest.
 type TaskResult struct {
-	Abandoned        Time             `json:"abandoned_ts"`
-	BotDimensions    []StringListPair `json:"bot_dimensions"`
-	BotID            string           `json:"bot_id"`
-	BotIdleSince     Time             `json:"bot_idle_since_ts"`
-	BotVersion       string           `json:"bot_version"`
-	Children         []model.TaskID   `json:"children_task_ids"`
-	Completed        Time             `json:"completed_ts"`
-	CostSavedUSD     float64          `json:"cost_saved_usd"`
-	Created          Time             `json:"created_ts"`
-	DedupedFrom      model.TaskID     `json:"deduped_from"`
-	DurationSecs     float64          `json:"duration"`
-	ExitCode         Int              `json:"exit_code"`
-	Failure          bool             `json:"failure"`
-	InternalFailure  bool             `json:"internal_failure"`
-	Modified         Time             `json:"modified_ts"`
-	CASOutput        CASReference     `json:"cas_output_root"`
-	ServerVersions   []string         `json:"server_versions"`
-	Started          Time             `json:"started_ts"`
-	State            TaskState        `json:"state"`
-	TaskID           model.TaskID     `json:"task_id"`
-	TryNumber        Int              `json:"try_number"`
-	CostsUSD         []float64        `json:"costs_usd"`
-	Name             string           `json:"name"`
-	Tags             []string         `json:"tags"`
-	User             string           `json:"user"`
-	Perf             TaskPerfStats    `json:"performance_stats"`
-	CIPDPins         CIPDPins         `json:"cipd_pins"`
-	RunID            model.TaskID     `json:"run_id"`
-	CurrentTaskSlice Int              `json:"current_task_slice"`
-	ResultDB         ResultDB         `json:"resultdb_info"`
+	Abandoned        Time             `json:"abandoned_ts,omitempty"`
+	BotDimensions    []StringListPair `json:"bot_dimensions,omitempty"`
+	BotID            string           `json:"bot_id,omitempty"`
+	BotIdleSince     Time             `json:"bot_idle_since_ts,omitempty"`
+	BotVersion       string           `json:"bot_version,omitempty"`
+	Children         []model.TaskID   `json:"children_task_ids,omitempty"`
+	Completed        Time             `json:"completed_ts,omitempty"`
+	CostSavedUSD     float64          `json:"cost_saved_usd,omitempty"`
+	Created          Time             `json:"created_ts,omitempty"`
+	DedupedFrom      model.TaskID     `json:"deduped_from,omitempty"`
+	DurationSecs     float64          `json:"duration,omitempty"`
+	ExitCode         Int              `json:"exit_code,omitempty"`
+	Failure          bool             `json:"failure,omitempty"`
+	InternalFailure  bool             `json:"internal_failure,omitempty"`
+	Modified         Time             `json:"modified_ts,omitempty"`
+	CASOutput        CASReference     `json:"cas_output_root,omitempty"`
+	ServerVersions   []string         `json:"server_versions,omitempty"`
+	Started          Time             `json:"started_ts,omitempty"`
+	State            TaskState        `json:"state,omitempty"`
+	TaskID           model.TaskID     `json:"task_id,omitempty"`
+	TryNumber        Int              `json:"try_number,omitempty"`
+	CostsUSD         []float64        `json:"costs_usd,omitempty"`
+	Name             string           `json:"name,omitempty"`
+	Tags             []string         `json:"tags,omitempty"`
+	User             string           `json:"user,omitempty"`
+	Perf             TaskPerfStats    `json:"performance_stats,omitempty"`
+	CIPDPins         CIPDPins         `json:"cipd_pins,omitempty"`
+	RunID            model.TaskID     `json:"run_id,omitempty"`
+	CurrentTaskSlice Int              `json:"current_task_slice,omitempty"`
+	ResultDB         ResultDB         `json:"resultdb_info,omitempty"`
 }
 
 // FromDB converts the model to the API.
@@ -614,6 +614,6 @@ type TaskSort = string
 
 // TaskQueue is a task queue.
 type TaskQueue struct {
-	Dimensions []string `json:"dimensions"`
-	ValidUntil Time     `json:"valid_until_ts"`
+	Dimensions []string `json:"dimensions,omitempty"`
+	ValidUntil Time     `json:"valid_until_ts,omitempty"`
 }

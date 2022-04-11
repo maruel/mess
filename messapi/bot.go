@@ -15,12 +15,12 @@ type BotsCountRequest struct {
 
 // BotsCountResponse is /bots/count (GET).
 type BotsCountResponse struct {
-	Now         Time  `json:"now"`
-	Count       int64 `json:"count"`
-	Quarantined int64 `json:"quarantined"`
-	Maintenance int64 `json:"maintenance"`
-	Dead        int64 `json:"dead"`
-	Busy        int64 `json:"busy"`
+	Now         Time  `json:"now,omitempty"`
+	Count       int64 `json:"count,omitempty"`
+	Quarantined int64 `json:"quarantined,omitempty"`
+	Maintenance int64 `json:"maintenance,omitempty"`
+	Dead        int64 `json:"dead,omitempty"`
+	Busy        int64 `json:"busy,omitempty"`
 }
 
 // BotsDimensionsRequest is /bots/dimensions (GET).
@@ -30,8 +30,8 @@ type BotsDimensionsRequest struct {
 
 // BotsDimensionsResponse is /bots/dimensions (GET).
 type BotsDimensionsResponse struct {
-	BotsDimensions []StringListPair `json:"bots_dimensions"`
-	Now            Time             `json:"ts"`
+	BotsDimensions []StringListPair `json:"bots_dimensions,omitempty"`
+	Now            Time             `json:"ts,omitempty"`
 }
 
 // BotsListRequest is /bots/list (GET).
@@ -49,15 +49,15 @@ type BotsListRequest struct {
 
 // BotsListResponse is /bots/list (GET).
 type BotsListResponse struct {
-	Cursor       string `json:"cursor"`
-	Items        []Bot  `json:"items"`
-	Now          Time   `json:"now"`
-	DeathTimeout int64  `json:"death_timeout"`
+	Cursor       string `json:"cursor,omitempty"`
+	Items        []Bot  `json:"items,omitempty"`
+	Now          Time   `json:"now,omitempty"`
+	DeathTimeout int64  `json:"death_timeout,omitempty"`
 }
 
 // BotDeleteResponse is /bot/<id>/delete (POST).
 type BotDeleteResponse struct {
-	Deleted bool `json:"deleted"`
+	Deleted bool `json:"deleted,omitempty"`
 }
 
 // BotEventsRequest is /bot/<id>/events (GET).
@@ -70,9 +70,9 @@ type BotEventsRequest struct {
 
 // BotEventsResponse is /bot/<id>/events (GET).
 type BotEventsResponse struct {
-	Cursor string     `json:"cursor"`
-	Items  []BotEvent `json:"items"`
-	Now    Time       `json:"now"`
+	Cursor string     `json:"cursor,omitempty"`
+	Items  []BotEvent `json:"items,omitempty"`
+	Now    Time       `json:"now,omitempty"`
 }
 
 // BotGetResponse is /bot/<id>/get (GET).
@@ -91,35 +91,35 @@ type BotTasksRequest struct {
 
 // BotTasksResponse is /bot/<id>/tasks (GET).
 type BotTasksResponse struct {
-	Cursor string       `json:"cursor"`
-	Items  []TaskResult `json:"items"`
-	Now    Time         `json:"now"`
+	Cursor string       `json:"cursor,omitempty"`
+	Items  []TaskResult `json:"items,omitempty"`
+	Now    Time         `json:"now,omitempty"`
 }
 
 // BotTerminateResponse is /bot/<id>/terminate (POST).
 type BotTerminateResponse struct {
-	TaskID model.TaskID `json:"task_id"`
+	TaskID model.TaskID `json:"task_id,omitempty"`
 }
 
 //
 
 // Bot reports the bot state as known by the server.
 type Bot struct {
-	BotID           string           `json:"bot_id"`
-	Dimensions      []StringListPair `json:"dimensions"`
-	ExternalIP      string           `json:"external_ip"`
-	AuthenticatedAs string           `json:"authenticated_as"`
-	FirstSeen       Time             `json:"first_seen_ts"`
-	IsDead          bool             `json:"is_dead"`
-	LastSeen        Time             `json:"last_seen_ts"`
-	Quarantined     bool             `json:"quarantined"`
-	MaintenanceMsg  string           `json:"maintenance_msg"`
-	TaskID          model.TaskID     `json:"task_id"`
-	TaskName        string           `json:"task_name"`
-	Version         string           `json:"version"`
+	BotID           string           `json:"bot_id,omitempty"`
+	Dimensions      []StringListPair `json:"dimensions,omitempty"`
+	ExternalIP      string           `json:"external_ip,omitempty"`
+	AuthenticatedAs string           `json:"authenticated_as,omitempty"`
+	FirstSeen       Time             `json:"first_seen_ts,omitempty"`
+	IsDead          bool             `json:"is_dead,omitempty"`
+	LastSeen        Time             `json:"last_seen_ts,omitempty"`
+	Quarantined     bool             `json:"quarantined,omitempty"`
+	MaintenanceMsg  string           `json:"maintenance_msg,omitempty"`
+	TaskID          model.TaskID     `json:"task_id,omitempty"`
+	TaskName        string           `json:"task_name,omitempty"`
+	Version         string           `json:"version,omitempty"`
 	// Encoded as json since it's an arbitrary dict.
-	State   string `json:"state"`
-	Deleted bool   `json:"deleted"`
+	State   string `json:"state,omitempty"`
+	Deleted bool   `json:"deleted,omitempty"`
 	// DEPRECATED: lease_id string
 	// DEPRECATED: lease_expiration_ts Time
 	// DEPRECATED: machine_type string
@@ -147,24 +147,24 @@ func (b *Bot) FromDB(m *model.Bot) {
 
 // BotEvents is events that a bot produced.
 type BotEvents struct {
-	Cursor string     `json:"cursor"`
-	Items  []BotEvent `json:"items"`
-	Now    Time       `json:"now"`
+	Cursor string     `json:"cursor,omitempty"`
+	Items  []BotEvent `json:"items,omitempty"`
+	Now    Time       `json:"now,omitempty"`
 }
 
 // BotEvent is one event that a bot produced.
 type BotEvent struct {
-	Time            Time             `json:"ts"`
-	Event           string           `json:"event_type"`
-	Message         string           `json:"message"`
-	Dimensions      []StringListPair `json:"dimensions"`
-	State           string           `json:"state"`
-	ExternalIP      string           `json:"external_ip"`
-	AuthenticatedAs string           `json:"authenticated_as"`
-	Version         string           `json:"version"`
-	Quarantined     bool             `json:"quarantined"`
-	MaintenanceMsg  string           `json:"maintenance_msg"`
-	TaskID          model.TaskID     `json:"task_id"`
+	Time            Time             `json:"ts,omitempty"`
+	Event           string           `json:"event_type,omitempty"`
+	Message         string           `json:"message,omitempty"`
+	Dimensions      []StringListPair `json:"dimensions,omitempty"`
+	State           string           `json:"state,omitempty"`
+	ExternalIP      string           `json:"external_ip,omitempty"`
+	AuthenticatedAs string           `json:"authenticated_as,omitempty"`
+	Version         string           `json:"version,omitempty"`
+	Quarantined     bool             `json:"quarantined,omitempty"`
+	MaintenanceMsg  string           `json:"maintenance_msg,omitempty"`
+	TaskID          model.TaskID     `json:"task_id,omitempty"`
 }
 
 // FromDB converts the model to the API.

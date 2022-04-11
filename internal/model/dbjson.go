@@ -332,7 +332,6 @@ func (j *jsonDriver) Close() error {
 func (j *jsonDriver) loadFrom(r io.Reader) error {
 	d := json.NewDecoder(r)
 	d.DisallowUnknownFields()
-	d.UseNumber()
 	j.rawTables.mu.Lock()
 	if err := d.Decode(&j.rawTables); err != nil {
 		return err

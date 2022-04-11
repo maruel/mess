@@ -57,7 +57,6 @@ func fetchUserInfo(bearer string, res *userInfo) error {
 	resp, err := c.Do(req)
 	defer resp.Body.Close()
 	d := json.NewDecoder(resp.Body)
-	d.UseNumber()
 	d.DisallowUnknownFields()
 	return d.Decode(res)
 }
@@ -690,7 +689,6 @@ func readPOSTJSON(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	}
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
-	d.UseNumber()
 	if err := d.Decode(v); err != nil {
 		r.Body.Close()
 		sendJSONResponse(w, errorStatus{status: 400, err: err})

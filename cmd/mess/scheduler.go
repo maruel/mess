@@ -77,7 +77,9 @@ func (s *scheduler) enqueue(ctx context.Context, r *model.TaskRequest, res *mode
 func (s *scheduler) poll(ctx context.Context, bot *model.Bot) *model.TaskRequest {
 	// TODO(maruel): Look for pending tasks.
 
-	const pollHang = 2 * time.Minute
+	// The Swarming bot currently has a read timeout of 60s.
+	// TODO(maruel): increase it upstream.
+	const pollHang = 30 * time.Second
 	w := waitingBot{bot: bot, ch: make(chan *model.TaskRequest)}
 	s.mu.Lock()
 	s.bots[bot.Key] = &w

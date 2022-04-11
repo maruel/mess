@@ -314,3 +314,9 @@ func getURL(req *http.Request) string {
 	}
 	return scheme + "//" + host
 }
+
+func decodeJSONStrict(raw []byte, out interface{}) error {
+	j := json.NewDecoder(bytes.NewReader(raw))
+	j.DisallowUnknownFields()
+	return j.Decode(out)
+}

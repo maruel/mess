@@ -72,20 +72,20 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	br := botRequest{}
-	j := json.NewDecoder(bytes.NewReader(raw))
-	j.DisallowUnknownFields()
-	j.UseNumber()
-	if err = j.Decode(&br); err != nil {
+	bcr := botCommonRequest{}
+	// Ignore extra keys. Will be processed below.
+	if err = json.Unmarshal(raw, &bcr); err != nil {
 		log.Ctx(ctx).Error().Str("err", err.Error()).Msg("failed to decode bot request")
 		sendJSONResponse(w, errorStatus{status: 400, err: err})
 		return
 	}
 
 	if id == "" && r.URL.Path == "/handshake" {
-		// handshake doesn't set the header yet. We should fix.
-		if d := br.Dimensions["id"]; len(d) == 1 {
-			id = d[0]
+		// handshake doesn't set the header yet. We should fix!
+		if len(bcr.Dimensions) != 0 {
+			if d := bcr.Dimensions["id"]; len(d) == 1 {
+				id = d[0]
+			}
 		}
 	}
 	if id == "" {
@@ -96,13 +96,19 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 	bot := model.Bot{Key: id, Created: now}
 	s.tables.BotGet(id, &bot)
 	bot.LastSeen = now
-	bot.Version = br.Version
-	bot.Dimensions = br.Dimensions
+	if bcr.Version != "" {
+		bot.Version = bcr.Version
+	}
+	if len(bcr.Dimensions) != 0 {
+		bot.Dimensions = bcr.Dimensions
+	}
 	bot.ExternalIP = getRemoteIP(r)
-	if s, err := json.Marshal(br.State); err == nil {
-		bot.State = s
-	} else {
-		bot.State, _ = json.Marshal(map[string]string{"quarantined": "invalid state: " + err.Error()})
+	if len(bcr.State) != 0 {
+		if s, err := json.Marshal(bcr.State); err == nil {
+			bot.State = s
+		} else {
+			bot.State, _ = json.Marshal(map[string]string{"quarantined": "invalid state: " + err.Error()})
+		}
 	}
 	s.tables.BotSet(&bot)
 
@@ -111,79 +117,108 @@ func (s *server) apiBot(w http.ResponseWriter, r *http.Request) {
 		e := model.BotEvent{}
 		e.InitFrom(&bot, now, "handshake", "")
 		s.tables.BotEventAdd(&e)
-
-		data := botHandshake{
+		bhr := botHandshakeRequest{}
+		if err := decodeJSONStrict(raw, &bhr); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
+		data := botHandshakeResponse{
 			BotVersion:         internal.GetBotVersion(ctx, getURL(r)),
 			BotConfigRev:       "??",
 			BotConfigName:      "bot_config.py",
 			ServerVersion:      s.version,
 			BotGroupCfgVersion: "??",
 			BotGroupCfg: botGroupCfg{
-				// Inject server side dimensions.
 				Dimensions: []messapi.StringListPair{},
 			},
 		}
-		// Inject data.BotConfig, data.BotConfigRev, data.BotConfigName
+		// TODO(maruel): Inject server-side bot config and dimensions.
 		sendJSONResponse(w, data)
-		s.tables.BotSet(&bot)
 		return
 	}
 
 	if r.URL.Path == "/poll" {
-		s.apiBotPoll(w, r, now, id, &bot)
-		s.tables.BotSet(&bot)
+		s.apiBotPoll(w, r, now, id, &bot, raw)
 		return
 	}
 	if r.URL.Path == "/event" {
+		ber := botEventRequest{}
+		if err := decodeJSONStrict(raw, &ber); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, br.Event, br.Message)
+		e.InitFrom(&bot, now, ber.Event, ber.Message)
 		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
-		s.tables.BotSet(&bot)
 		return
 	}
 	if r.URL.Path == "/oauth_token" {
-		// "account_id"
-		// "id"
-		// "scopes"
-		// "task_id"
-		sendJSONResponse(w, map[string]string{})
-		s.tables.BotSet(&bot)
+		bor := botOAuthTokenRequest{}
+		if err := decodeJSONStrict(raw, &bor); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
+		sendJSONResponse(w, botOAuthTokenResponse{})
 		return
 	}
 	if r.URL.Path == "/id_token" {
-		// "account_id"
-		// "id"
-		// "audience"
-		// "task_id"
-		sendJSONResponse(w, map[string]string{})
-		s.tables.BotSet(&bot)
+		bir := botIDTokenRequest{}
+		if err := decodeJSONStrict(raw, &bir); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
+		sendJSONResponse(w, botIDTokenResponse{})
 		return
 	}
-	if r.URL.Path == "/task_update" {
+	if r.URL.Path == "/task_update" || strings.HasPrefix(r.URL.Path, "/task_update/") {
+		// The bot has an inconsistency where it may use two kinds of URLs. task_id
+		// is always passed as a POST argument to use this.
+		btr := botTaskUpdateRequest{}
+		if err := decodeJSONStrict(raw, &btr); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
+		/* Only when state changes.
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "task_update", br.Message)
+		e.InitFrom(&bot, now, "task_update", btr.Message)
 		s.tables.BotEventAdd(&e)
-		sendJSONResponse(w, map[string]string{})
-		s.tables.BotSet(&bot)
+		*/
+		sendJSONResponse(w, botTaskUpdateResponse{Ok: true})
 		return
 	}
-	if r.URL.Path == "/task_error" {
+	if r.URL.Path == "/task_error" || strings.HasPrefix(r.URL.Path, "/task_error/") {
+		btr := botTaskErrorRequest{}
+		if err := decodeJSONStrict(raw, &btr); err != nil {
+			panic(err)
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
+		}
 		e := model.BotEvent{}
-		e.InitFrom(&bot, now, "task_error", br.Message)
+		e.InitFrom(&bot, now, "task_error", btr.Message)
 		s.tables.BotEventAdd(&e)
 		sendJSONResponse(w, map[string]string{})
-		s.tables.BotSet(&bot)
 		return
 	}
 	log.Ctx(ctx).Error().Msg("Unknown bot request")
 	sendJSONResponse(w, errorStatus{status: 404, err: errUnknownAPI})
 }
 
-func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Time, id string, bot *model.Bot) {
+func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Time, id string, bot *model.Bot, raw []byte) {
+	bpr := botPollRequest{}
+	if err := decodeJSONStrict(raw, &bpr); err != nil {
+		panic(err)
+		sendJSONResponse(w, errorStatus{status: 400, err: err})
+		return
+	}
 	// In practice it would be the command sent.
 	// bot.AddEvent(now, "poll", "")
-	bp := botPoll{}
+	bp := botPollResponse{}
 	ctx := r.Context()
 	if version := internal.GetBotVersion(ctx, getURL(r)); bot.Version != version {
 		bp.Cmd = "update"
@@ -202,27 +237,27 @@ func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Tim
 		sendJSONResponse(w, bp)
 	}
 	// TODO(maruel): bot_restart, terminate.
-
-	// TODO(maruel): When sleep, do long (2 minutes?) hanging poll instead.
 	bp.Cmd = "sleep"
 	bp.Duration = 10
 	sendJSONResponse(w, bp)
 }
 
-// botRequest is the JSON HTTP POST content. Depending on different endpoints,
-// different values are used. This should be cleaned up.
-type botRequest struct {
-	Token string `json:"tok"`
-	//BotID       string                 `json:"bot_id"`
-	Dimensions  map[string][]string    `json:"dimensions"`
-	RequestUUID string                 `json:"request_uuid"`
-	State       map[string]interface{} `json:"state"`
-	Version     string                 `json:"version"`
-	Event       string                 `json:"event"`
-	Message     string                 `json:"message"`
+// botCommonRequest is the JSON HTTP POST content for most requests under
+// /swarming/api/v1/bot/.
+type botCommonRequest struct {
+	//Token   string `json:"tok"`
+	Dimensions map[string][]string    `json:"dimensions"`
+	State      map[string]interface{} `json:"state"`
+	Version    string                 `json:"version"`
 }
 
-type botHandshake struct {
+// botHandshakeRequest is arguments for /swarming/api/v1/bot/handshake.
+type botHandshakeRequest struct {
+	botCommonRequest
+}
+
+// botHandshakeResponse is response to /swarming/api/v1/bot/handshake.
+type botHandshakeResponse struct {
 	BotVersion         string      `json:"bot_version"`
 	BotConfigRev       string      `json:"bot_config_rev"`
 	BotConfigName      string      `json:"bot_config_name"`
@@ -235,48 +270,55 @@ type botGroupCfg struct {
 	Dimensions []messapi.StringListPair `json:"dimensions"`
 }
 
-type botPoll struct {
+// botPollRequest is arguments for /swarming/api/v1/bot/poll.
+type botPollRequest struct {
+	botCommonRequest
+	RequestUUID string `json:"request_uuid"`
+}
+
+// botPollResponse is response to /swarming/api/v1/bot/poll.
+type botPollResponse struct {
 	Cmd string `json:"cmd"`
 
 	// Cmd == "bot_restart"
-	Message string `json:"message"`
+	Message string `json:"message,omitempty"`
 
 	// Cmd == "run"
-	Manifest botPollManifest `json:"manifest"`
+	Manifest botPollManifest `json:"manifest,omitempty"`
 
 	// Cmd == "sleep"
-	Duration    int  `json:"duration"`
-	Quarantined bool `json:"quarantined"`
+	Duration    int  `json:"duration,omitempty"`
+	Quarantined bool `json:"quarantined,omitempty"`
 
 	// Cmd == "terminate"
-	TaskID string `json:"task_id"`
+	TaskID string `json:"task_id,omitempty"`
 
 	// Cmd == "update"
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 }
 
 type botPollManifest struct {
-	BotID              string                   `json:"bot_id"`
-	BotAuthenticatedAs string                   `json:"bot_authenticated_as"`
-	Caches             []botPollCache           `json:"caches"`
-	CIPDInput          botPollCIPDInput         `json:"cipd_input"`
-	Command            []string                 `json:"command"`
-	Containment        botPollContainment       `json:"containment"`
-	Dimensions         []messapi.StringPair     `json:"dimensions"`
-	Env                []messapi.StringPair     `json:"env"`
-	EnvPrefixes        []messapi.StringListPair `json:"env_prefixes"`
-	GracePeriod        int64                    `json:"grace_period"`
-	HardTimeout        int64                    `json:"hard_timeout"`
-	Host               string                   `json:"host"`
-	IOTimeout          int64                    `json:"io_timeout"`
-	SecretBytes        string                   `json:"secret_bytes"` // base64 encoded
-	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root"`
-	Outputs            []string                 `json:"outputs"`
-	Realm              botPollRealm             `json:"realm"`
-	RelativeWD         string                   `json:"relative_cwd"`
-	ResultDB           botPollResultDB          `json:"resultdb"`
-	ServiceAccounts    botPollServiceAccounts   `json:"service_accounts"`
-	TaskID             model.TaskID             `json:"task_id"`
+	BotID              string                   `json:"bot_id,omitempty"`
+	BotAuthenticatedAs string                   `json:"bot_authenticated_as,omitempty"`
+	Caches             []botPollCache           `json:"caches,omitempty"`
+	CIPDInput          botPollCIPDInput         `json:"cipd_input,omitempty"`
+	Command            []string                 `json:"command,omitempty"`
+	Containment        botPollContainment       `json:"containment,omitempty"`
+	Dimensions         []messapi.StringPair     `json:"dimensions,omitempty"`
+	Env                []messapi.StringPair     `json:"env,omitempty"`
+	EnvPrefixes        []messapi.StringListPair `json:"env_prefixes,omitempty"`
+	GracePeriod        int64                    `json:"grace_period,omitempty"`
+	HardTimeout        int64                    `json:"hard_timeout,omitempty"`
+	Host               string                   `json:"host,omitempty"`
+	IOTimeout          int64                    `json:"io_timeout,omitempty"`
+	SecretBytes        string                   `json:"secret_bytes,omitempty"` // base64 encoded
+	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root,omitempty"`
+	Outputs            []string                 `json:"outputs,omitempty"`
+	Realm              botPollRealm             `json:"realm,omitempty"`
+	RelativeWD         string                   `json:"relative_cwd,omitempty"`
+	ResultDB           botPollResultDB          `json:"resultdb,omitempty"`
+	ServiceAccounts    botPollServiceAccounts   `json:"service_accounts,omitempty"`
+	TaskID             model.TaskID             `json:"task_id,omitempty"`
 }
 
 func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
@@ -315,15 +357,15 @@ func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
 }
 
 type botPollCache struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Hint int64  `json:"hint"`
+	Name string `json:"name,omitempty"`
+	Path string `json:"path,omitempty"`
+	Hint int64  `json:"hint,omitempty"`
 }
 
 type botCIPDPackage struct {
-	PkgName string `json:"package_name"`
-	Version string `json:"version"`
-	Path    string `json:"path"`
+	PkgName string `json:"package_name",omitempty`
+	Version string `json:"version,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 func (b *botCIPDPackage) fromDB(m *model.CIPDPackage) {
@@ -333,32 +375,32 @@ func (b *botCIPDPackage) fromDB(m *model.CIPDPackage) {
 }
 
 type botPollCIPDInput struct {
-	ClientPackage botCIPDPackage   `json:"client_package"`
-	Packages      []botCIPDPackage `json:"packages"`
-	Server        string           `json:"server"`
+	ClientPackage botCIPDPackage   `json:"client_package,omitempty"`
+	Packages      []botCIPDPackage `json:"packages,omitempty"`
+	Server        string           `json:"server,omitempty"`
 }
 
 type botPollContainment struct {
-	ContainmentType string `json:"containment_type"`
+	ContainmentType string `json:"containment_type,omitempty"`
 }
 
 type botPollCASInputRoot struct {
-	CASInstance string       `json:"cas_instance"`
-	Digest      model.Digest `json:"digest"`
+	CASInstance string       `json:"cas_instance,omitempty"`
+	Digest      model.Digest `json:"digest,omitempty"`
 }
 
 type botPollRealm struct {
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 }
 
 type botPollResultDB struct {
-	Host              string                    `json:"hostname"`
-	CurrentInvocation botPollResultDBInvocation `json:"current_invocation"`
+	Host              string                    `json:"hostname,omitempty"`
+	CurrentInvocation botPollResultDBInvocation `json:"current_invocation,omitempty"`
 }
 
 type botPollResultDBInvocation struct {
-	Name        string `json:"name"`
-	UpdateToken string `json:"update_token"`
+	Name        string `json:"name,omitempty"`
+	UpdateToken string `json:"update_token,omitempty"`
 }
 
 type botPollServiceAccounts struct {
@@ -366,6 +408,78 @@ type botPollServiceAccounts struct {
 	// address is specified, it is assumed to be a Google Cloud IAM service
 	// account. The bot uses /oauth_token API to grab a token.
 
-	System string `json:"system"`
-	Task   string `json:"task"`
+	System string `json:"system,omitempty"`
+	Task   string `json:"task,omitempty"`
+}
+
+// botEventRequest is arguments for /swarming/api/v1/bot/event.
+type botEventRequest struct {
+	botCommonRequest
+	Event   string `json:"event"`
+	Message string `json:"message"`
+}
+
+// botOAuthTokenRequest is arguments for /swarming/api/v1/bot/oauth_token.
+type botOAuthTokenRequest struct {
+	botCommonRequest
+	AccountID string `json:"account_id"`
+	Audience  string `json:"audience"`
+	TaskID    string `json:"task_id"`
+}
+
+// botOAuthTokenResponse is response to /swarming/api/v1/bot/oauth_token.
+type botOAuthTokenResponse struct {
+	ServiceAccount string `json:"service_account"`
+	IDToken        string `json:"id_token"`
+	ExpiryEpoch    int64  `json:"expiry"`
+}
+
+// botIDTokenRequest is arguments for /swarming/api/v1/bot/id_token.
+type botIDTokenRequest struct {
+	botCommonRequest
+	AccountID string `json:"account_id"`
+	Audience  string `json:"audience"`
+	TaskID    string `json:"task_id"`
+}
+
+// botIDTokenResponse is response to /swarming/api/v1/bot/id_token.
+type botIDTokenResponse struct {
+	ServiceAccount string `json:"service_account"`
+	IDToken        string `json:"id_token"`
+	ExpiryEpoch    int64  `json:"expiry"`
+}
+
+// botTaskUpdateRequest is arguments for /swarming/api/v1/bot/task_update.
+type botTaskUpdateRequest struct {
+	botCommonRequest
+	BotOverheadSecs  float64     `json:"bot_overhead"`
+	CacheTrimStats   interface{} `json:"cache_trim_stats"`
+	CASOutputRoot    interface{} `json:"cas_output_root"`
+	CIPDPins         interface{} `json:"cipd_pins"`
+	CIPDStats        interface{} `json:"cipd_stats"`
+	CleanupStats     interface{} `json:"cleanup_stats"`
+	CostUSD          float64     `json:"cost_usd"`
+	DurationSecs     float64     `json:"duration"`
+	ExitCode         int32       `json:"exit_code"`
+	HardTimeout      bool        `json:"hard_timeout"`
+	ID               string      `json:"id"`
+	IOTimeout        bool        `json:"io_timeout"`
+	IsolatedStats    interface{} `json:"isolated_stats"`
+	NamedCachesStats interface{} `json:"named_caches_stats"`
+	Output           []byte      `json:"output"`
+	OutputChunkStart int64       `json:"output_chunk_start"`
+	TaskID           string      `json:"task_id"`
+}
+
+// botTaskUpdateResponse is arguments for /swarming/api/v1/bot/task_update.
+type botTaskUpdateResponse struct {
+	MustStop bool `json:"must_stop"`
+	Ok       bool `json:"ok"`
+}
+
+// botTaskErrorRequest is arguments for /swarming/api/v1/bot/task_error.
+type botTaskErrorRequest struct {
+	botCommonRequest
+	TaskID  string `json:"task_id"`
+	Message string `json:"message"`
 }

@@ -356,7 +356,7 @@ func (t *TaskProperties) ToDB(m *model.TaskProperties) error {
 	}
 	m.Command = t.Command
 	m.RelativeWD = t.RelativeWD
-	t.Dimensions = ToStringPairs(m.Dimensions)
+	m.Dimensions = FromStringPairs(t.Dimensions)
 	m.Env = FromStringPairs(t.Env)
 	m.EnvPrefixes = FromStringListPairs(t.EnvPrefixes)
 	m.HardTimeout = time.Duration(t.HardTimeoutSecs.Int64()) * time.Second

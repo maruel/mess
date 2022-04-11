@@ -6,6 +6,7 @@ import (
 
 	// Force the sqlite3 driver to be registered.
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/zerolog/log"
 )
 
 type sqlDB struct {
@@ -97,7 +98,8 @@ func (s *sqlDB) TaskRequestCount() int64 {
 }
 func (s *sqlDB) TaskRequestSlice(f Filter) ([]TaskRequest, string) {
 	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() {
-		panic("implement filters")
+		// TODO(maruel): pass context.
+		log.Error().Msg("TODO: implement filters")
 	}
 	if f.Limit == 0 {
 		panic("set limit")
@@ -157,8 +159,8 @@ func (s *sqlDB) TaskResultCount() int64 {
 
 func (s *sqlDB) TaskResultSlice(botid string, f Filter, state TaskStateQuery, sort TaskSort) ([]TaskResult, string) {
 	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() || state != TaskStateQueryAll || sort != TaskSortCreated {
-		// TODO(maruel): Implement.
-		//panic("implement filters")
+		// TODO(maruel): pass context.
+		log.Error().Msg("TODO")
 	}
 	if f.Limit == 0 {
 		panic("set limit")
@@ -216,7 +218,8 @@ func (s *sqlDB) BotSet(b *Bot) {
 
 func (s *sqlDB) BotCount(dims map[string]string) (total, quarantined, maintenance, dead, busy int64) {
 	if len(dims) != 0 {
-		panic("implement dims")
+		// TODO(maruel): pass context.
+		log.Error().Msg("TODO: implement dims")
 	}
 	row := s.db.QueryRow("SELECT COUNT(*), COUNT(quarantinedMsg), COUNT(maintenanceMsg), COUNT(dead), COUNT(taskID) FROM Bot WHERE NOT deleted")
 	if err := row.Scan(&total, &quarantined, &maintenance, &dead, &busy); err != nil {
@@ -228,7 +231,8 @@ func (s *sqlDB) BotCount(dims map[string]string) (total, quarantined, maintenanc
 
 func (s *sqlDB) BotGetSlice(cursor string, limit int) ([]Bot, string) {
 	if cursor != "" {
-		panic("implement cursor")
+		// TODO(maruel): pass context.
+		log.Error().Msg("TODO: implement cursor")
 	}
 	if limit == 0 {
 		panic("set limit")
@@ -274,7 +278,8 @@ func (s *sqlDB) BotEventAdd(e *BotEvent) {
 
 func (s *sqlDB) BotEventGetSlice(botid string, f Filter) ([]BotEvent, string) {
 	if f.Cursor != "" || !f.Earliest.IsZero() || !f.Latest.IsZero() {
-		panic("implement filters")
+		// TODO(maruel): pass context.
+		log.Error().Msg("TODO: implement filters")
 	}
 	if f.Limit == 0 {
 		panic("set limit")

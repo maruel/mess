@@ -420,13 +420,12 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		if !readPOSTJSON(w, r, &t) {
 			return
 		}
-		// TODO(maruel): Validate all.
 		m := model.TaskRequest{SchemaVersion: 1}
 		t.ToDB(now, &m)
-		if m.Priority == 0 {
-			m.Priority = 200
+		if err := m.ValidateAndSetDefaults(); err != nil {
+			sendJSONResponse(w, errorStatus{status: 400, err: err})
+			return
 		}
-		// TODO(maruel): Add tags from dimensions.
 
 		// First, save to DB.
 		s.tables.TaskRequestAdd(&m)

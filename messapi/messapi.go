@@ -26,12 +26,18 @@ func CloudTime(t time.Time) Time {
 type Int string
 
 func (i Int) Int32() int32 {
-	v, _ := strconv.ParseInt(string(i), 32, 10)
+	v, err := strconv.ParseInt(string(i), 32, 10)
+	if err != nil {
+		return 0
+	}
 	return int32(v)
 }
 
 func (i Int) Int64() int64 {
-	v, _ := strconv.ParseInt(string(i), 64, 10)
+	v, err := strconv.ParseInt(string(i), 64, 10)
+	if err != nil {
+		return 0
+	}
 	return v
 }
 

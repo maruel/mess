@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +34,38 @@ type TaskRequest struct {
 	Realm               string      `json:"q,omitempty"`
 	ResultDB            bool        `json:"r,omitempty"`
 	BuildToken          BuildToken  `json:"s,omitempty"`
+}
+
+// ValidateAndSetDefaults set default values and returns an error if the task
+// request is invalid.
+func (t *TaskRequest) ValidateAndSetDefaults() error {
+	if t.Priority == 0 {
+		t.Priority = 200
+	}
+	if t.Priority < 1 || t.Priority > 255 {
+		return fmt.Errorf("invalid priority %d", t.Priority)
+	}
+	// Add tags from dimensions.
+	tags := map[string]struct{}{}
+	for _, n := range t.Tags {
+		tags[n] = struct{}{}
+	}
+	for i := range t.TaskSlices {
+		for k, v := range t.TaskSlices[i].Properties.Dimensions {
+			tags[k+":"+v] = struct{}{}
+		}
+		// TODO(maruel): Expiration has to be checked here.
+		if err := t.TaskSlices[i].ValidateAndSetDefaults(); err != nil {
+			return err
+		}
+	}
+	t.Tags = make([]string, 0, len(tags))
+	for k := range tags {
+		t.Tags = append(t.Tags, k)
+	}
+	sort.Strings(t.Tags)
+	// TODO(maruel): All the other checks.
+	return nil
 }
 
 // TaskID is a task ID as presented to the user.
@@ -190,6 +224,29 @@ type Containment struct {
 	ContainmentType ContainmentType `json:"a,omitempty"`
 }
 
+// TaskSlice defines one "option" to run the task.
+type TaskSlice struct {
+	Properties      TaskProperties `json:"a,omitempty"`
+	Expiration      time.Duration  `json:"b,omitempty"`
+	WaitForCapacity bool           `json:"c,omitempty"`
+}
+
+// ValidateAndSetDefaults set default values and returns an error if the task
+// request is invalid.
+func (t *TaskSlice) ValidateAndSetDefaults() error {
+	if err := t.Properties.ValidateAndSetDefaults(); err != nil {
+		return err
+	}
+	// TODO(maruel): Calculate the sum.
+	if t.Expiration == 0 {
+		t.Expiration = time.Hour
+	}
+	if t.Expiration < time.Second || t.Expiration > 3*24*time.Hour+time.Minute {
+		return fmt.Errorf("invalid expiration %s", t.Expiration)
+	}
+	return nil
+}
+
 // TaskProperties declares what the task runs.
 type TaskProperties struct {
 	Caches       []Cache             `json:"a,omitempty"`
@@ -212,11 +269,21 @@ type TaskProperties struct {
 	Containment  Containment         `json:"r,omitempty"`
 }
 
-// TaskSlice defines one "option" to run the task.
-type TaskSlice struct {
-	Properties      TaskProperties `json:"a,omitempty"`
-	Expiration      time.Duration  `json:"b,omitempty"`
-	WaitForCapacity bool           `json:"c,omitempty"`
+// ValidateAndSetDefaults set default values and returns an error if the task
+// request is invalid.
+func (t *TaskProperties) ValidateAndSetDefaults() error {
+	// TODO(maruel): There's a bug in the Swarming bot that the CIPD client is
+	// *always* enabled. So we need to set a valid CIPD client here. This should
+	// be removed as soon as possible.
+	if t.CIPDHost == "" {
+		t.CIPDHost = "https://chrome-infra-packages.appspot.com"
+	}
+	if t.CIPDClient.PkgName == "" {
+		t.CIPDClient.PkgName = "infra/tools/cipd/${platform}"
+		t.CIPDClient.Version = "git_revision:8e9b0c80860d00dfe951f7ea37d74e210d376c13"
+		t.CIPDClient.Path = ""
+	}
+	return nil
 }
 
 // BuildToken is a LUCI Buildbucket token.

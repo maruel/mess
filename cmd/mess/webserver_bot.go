@@ -235,6 +235,7 @@ func (s *server) apiBotPoll(w http.ResponseWriter, r *http.Request, now time.Tim
 		bp.Manifest.BotAuthenticatedAs = bot.AuthenticatedAs
 		bp.Manifest.Host = getURL(r)
 		sendJSONResponse(w, bp)
+		return
 	}
 	// TODO(maruel): bot_restart, terminate.
 	bp.Cmd = "sleep"
@@ -298,27 +299,27 @@ type botPollResponse struct {
 }
 
 type botPollManifest struct {
-	BotID              string                   `json:"bot_id,omitempty"`
-	BotAuthenticatedAs string                   `json:"bot_authenticated_as,omitempty"`
-	Caches             []botPollCache           `json:"caches,omitempty"`
-	CIPDInput          botPollCIPDInput         `json:"cipd_input,omitempty"`
-	Command            []string                 `json:"command,omitempty"`
-	Containment        botPollContainment       `json:"containment,omitempty"`
-	Dimensions         []messapi.StringPair     `json:"dimensions,omitempty"`
-	Env                []messapi.StringPair     `json:"env,omitempty"`
-	EnvPrefixes        []messapi.StringListPair `json:"env_prefixes,omitempty"`
-	GracePeriod        int64                    `json:"grace_period,omitempty"`
-	HardTimeout        int64                    `json:"hard_timeout,omitempty"`
-	Host               string                   `json:"host,omitempty"`
-	IOTimeout          int64                    `json:"io_timeout,omitempty"`
-	SecretBytes        string                   `json:"secret_bytes,omitempty"` // base64 encoded
-	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root,omitempty"`
-	Outputs            []string                 `json:"outputs,omitempty"`
-	Realm              botPollRealm             `json:"realm,omitempty"`
-	RelativeWD         string                   `json:"relative_cwd,omitempty"`
-	ResultDB           botPollResultDB          `json:"resultdb,omitempty"`
-	ServiceAccounts    botPollServiceAccounts   `json:"service_accounts,omitempty"`
-	TaskID             model.TaskID             `json:"task_id,omitempty"`
+	BotID              string                   `json:"bot_id"`
+	BotAuthenticatedAs string                   `json:"bot_authenticated_as"`
+	Caches             []botPollCache           `json:"caches"`
+	CIPDInput          botPollCIPDInput         `json:"cipd_input"`
+	Command            []string                 `json:"command"`
+	Containment        botPollContainment       `json:"containment"`
+	Dimensions         []messapi.StringPair     `json:"dimensions"`
+	Env                []messapi.StringPair     `json:"env"`
+	EnvPrefixes        []messapi.StringListPair `json:"env_prefixes"`
+	GracePeriod        int64                    `json:"grace_period"`
+	HardTimeout        int64                    `json:"hard_timeout"`
+	Host               string                   `json:"host"`
+	IOTimeout          int64                    `json:"io_timeout"`
+	SecretBytes        string                   `json:"secret_bytes"` // base64 encoded
+	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root"`
+	Outputs            []string                 `json:"outputs"`
+	Realm              botPollRealm             `json:"realm"`
+	RelativeWD         string                   `json:"relative_cwd"`
+	ResultDB           botPollResultDB          `json:"resultdb"`
+	ServiceAccounts    botPollServiceAccounts   `json:"service_accounts"`
+	TaskID             model.TaskID             `json:"task_id"`
 }
 
 func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
@@ -344,28 +345,28 @@ func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
 	b.IOTimeout = int64(p.IOTimeout / time.Second)
 	// TODO(maruel): SecretBytes = // base64
 	b.CASInputRoot.CASInstance = p.CASHost
-	b.CASInputRoot.Digest = p.Input
+	b.CASInputRoot.Digest.FromDB(&p.Input)
 	b.Outputs = p.Outputs
 	b.Realm.Name = t.Realm
 	b.RelativeWD = p.RelativeWD
 	b.ResultDB.Host = "" // TODO(maruel): Add
 	b.ResultDB.CurrentInvocation.Name = ""
 	b.ResultDB.CurrentInvocation.UpdateToken = ""
-	b.ServiceAccounts.System = "none" // TODO(maruel): impersonation
-	b.ServiceAccounts.Task = "none"
+	b.ServiceAccounts.System.ServiceAccount = "none" // TODO(maruel): impersonation
+	b.ServiceAccounts.Task.ServiceAccount = "none"
 	b.TaskID = model.ToTaskID(t.Key)
 }
 
 type botPollCache struct {
-	Name string `json:"name,omitempty"`
-	Path string `json:"path,omitempty"`
-	Hint int64  `json:"hint,omitempty"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Hint int64  `json:"hint"`
 }
 
 type botCIPDPackage struct {
-	PkgName string `json:"package_name",omitempty`
-	Version string `json:"version,omitempty"`
-	Path    string `json:"path,omitempty"`
+	PkgName string `json:"package_name"`
+	Version string `json:"version"`
+	Path    string `json:"path"`
 }
 
 func (b *botCIPDPackage) fromDB(m *model.CIPDPackage) {
@@ -375,32 +376,32 @@ func (b *botCIPDPackage) fromDB(m *model.CIPDPackage) {
 }
 
 type botPollCIPDInput struct {
-	ClientPackage botCIPDPackage   `json:"client_package,omitempty"`
-	Packages      []botCIPDPackage `json:"packages,omitempty"`
-	Server        string           `json:"server,omitempty"`
+	ClientPackage botCIPDPackage   `json:"client_package"`
+	Packages      []botCIPDPackage `json:"packages"`
+	Server        string           `json:"server"`
 }
 
 type botPollContainment struct {
-	ContainmentType string `json:"containment_type,omitempty"`
+	ContainmentType string `json:"containment_type"`
 }
 
 type botPollCASInputRoot struct {
-	CASInstance string       `json:"cas_instance,omitempty"`
-	Digest      model.Digest `json:"digest,omitempty"`
+	CASInstance string         `json:"cas_instance"`
+	Digest      messapi.Digest `json:"digest"`
 }
 
 type botPollRealm struct {
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 }
 
 type botPollResultDB struct {
-	Host              string                    `json:"hostname,omitempty"`
-	CurrentInvocation botPollResultDBInvocation `json:"current_invocation,omitempty"`
+	Host              string                    `json:"hostname"`
+	CurrentInvocation botPollResultDBInvocation `json:"current_invocation"`
 }
 
 type botPollResultDBInvocation struct {
-	Name        string `json:"name,omitempty"`
-	UpdateToken string `json:"update_token,omitempty"`
+	Name        string `json:"name"`
+	UpdateToken string `json:"update_token"`
 }
 
 type botPollServiceAccounts struct {
@@ -408,8 +409,12 @@ type botPollServiceAccounts struct {
 	// address is specified, it is assumed to be a Google Cloud IAM service
 	// account. The bot uses /oauth_token API to grab a token.
 
-	System string `json:"system,omitempty"`
-	Task   string `json:"task,omitempty"`
+	System botPollServiceAccount `json:"system"`
+	Task   botPollServiceAccount `json:"task"`
+}
+
+type botPollServiceAccount struct {
+	ServiceAccount string `json:"service_account"`
 }
 
 // botEventRequest is arguments for /swarming/api/v1/bot/event.
@@ -480,6 +485,7 @@ type botTaskUpdateResponse struct {
 // botTaskErrorRequest is arguments for /swarming/api/v1/bot/task_error.
 type botTaskErrorRequest struct {
 	botCommonRequest
+	BotID   string `json:"id"`
 	TaskID  string `json:"task_id"`
 	Message string `json:"message"`
 }

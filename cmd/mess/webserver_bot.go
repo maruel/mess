@@ -313,7 +313,7 @@ type botPollManifest struct {
 	Host               string                   `json:"host"`
 	IOTimeout          int64                    `json:"io_timeout"`
 	SecretBytes        string                   `json:"secret_bytes"` // base64 encoded
-	CASInputRoot       botPollCASInputRoot      `json:"cas_input_root"`
+	CASInputRoot       *botPollCASInputRoot     `json:"cas_input_root"`
 	Outputs            []string                 `json:"outputs"`
 	Realm              botPollRealm             `json:"realm"`
 	RelativeWD         string                   `json:"relative_cwd"`
@@ -344,9 +344,16 @@ func (b *botPollManifest) fromRequest(t *model.TaskRequest, slice int) {
 	b.HardTimeout = int64(p.HardTimeout / time.Second)
 	b.IOTimeout = int64(p.IOTimeout / time.Second)
 	// TODO(maruel): SecretBytes = // base64
-	b.CASInputRoot.CASInstance = p.CASHost
-	b.CASInputRoot.Digest.FromDB(&p.Input)
+	if p.Input.Size != 0 {
+		// Cannot set CASInstance without an input digest.
+		b.CASInputRoot = &botPollCASInputRoot{CASInstance: p.CASHost}
+		b.CASInputRoot.Digest.FromDB(&p.Input)
+	}
 	b.Outputs = p.Outputs
+	if b.Outputs == nil {
+		// task_runner expects non-nil.
+		b.Outputs = []string{}
+	}
 	b.Realm.Name = t.Realm
 	b.RelativeWD = p.RelativeWD
 	b.ResultDB.Host = "" // TODO(maruel): Add

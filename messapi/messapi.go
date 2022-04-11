@@ -117,6 +117,12 @@ func ToThreeState(v string) ThreeState {
 	}
 }
 
+// ToBool parses a string passed as a HTTP GET query argument.
+func ToBool(v string) bool {
+	v = strings.ToLower(v)
+	return v == "1" || v == "true"
+}
+
 // ToInt64 parses a string passed as a HTTP GET query argument.
 func ToInt64(v string, def int64) int64 {
 	if v == "" {

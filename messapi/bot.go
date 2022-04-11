@@ -84,7 +84,7 @@ type BotTasksRequest struct {
 	Cursor                  string
 	End                     time.Time
 	Start                   time.Time
-	State                   string // TaskStateQuery default=ALL
+	State                   TaskStateQuery
 	Sort                    string
 	IncludePerformanceStats bool
 }

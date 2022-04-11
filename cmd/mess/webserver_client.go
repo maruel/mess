@@ -387,7 +387,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			State:                   r.FormValue("state"),
 			Tags:                    r.Form["tags"],
 			Sort:                    r.FormValue("sort"),
-			IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
+			IncludePerformanceStats: messapi.ToBool(r.FormValue("include_performance_stats")),
 		}
 		log.Ctx(ctx).Error().Msg("TODO: implement State, Tags, Sort, Perf")
 		f := model.Filter{
@@ -402,7 +402,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		for i := range objs {
 			// TODO(maruel): Make more performant.
 			s.tables.TaskRequestGet(objs[i].Key, &robj)
-			items[i].FromDB(&robj, &objs[i])
+			items[i].FromDB(&robj, &objs[i], req.IncludePerformanceStats)
 		}
 		sendJSONResponse(w, messapi.TasksListResponse{
 			Cursor: cursor,
@@ -439,7 +439,7 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		resp := messapi.TasksNewResponse{TaskID: model.ToTaskID(m.Key)}
 		resp.Request.FromDB(&m)
-		resp.Result.FromDB(&m, &n)
+		resp.Result.FromDB(&m, &n, false)
 		sendJSONResponse(w, resp)
 		return
 	}
@@ -448,14 +448,13 @@ func (s *server) apiEndpointTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req := messapi.TasksRequestsRequest{
-			Limit:                   messapi.ToInt64(r.FormValue("limit"), 200),
-			Cursor:                  r.FormValue("cursor"),
-			End:                     messapi.ToTime(r.FormValue("end")),
-			Start:                   messapi.ToTime(r.FormValue("start")),
-			State:                   r.FormValue("state"),
-			Tags:                    r.Form["tags"],
-			Sort:                    r.FormValue("sort"),
-			IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
+			Limit:  messapi.ToInt64(r.FormValue("limit"), 200),
+			Cursor: r.FormValue("cursor"),
+			End:    messapi.ToTime(r.FormValue("end")),
+			Start:  messapi.ToTime(r.FormValue("start")),
+			State:  r.FormValue("state"),
+			Tags:   r.Form["tags"],
+			Sort:   r.FormValue("sort"),
 		}
 		log.Ctx(ctx).Error().Msg("TODO: state, tags, sort, perf")
 		f := model.Filter{
@@ -553,7 +552,7 @@ func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
 				Start:                   messapi.ToTime(r.FormValue("start")),
 				State:                   r.FormValue("state"),
 				Sort:                    r.FormValue("sort"),
-				IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
+				IncludePerformanceStats: messapi.ToBool(r.FormValue("include_performance_stats")),
 			}
 			log.Ctx(ctx).Error().Msg("TODO: State and Sort")
 			f := model.Filter{
@@ -562,10 +561,17 @@ func (s *server) apiEndpointBot(w http.ResponseWriter, r *http.Request) {
 				Earliest: req.Start,
 				Latest:   req.End,
 			}
-			s.tables.TaskResultSlice(id, f, model.TaskStateQueryAll, model.TaskSortCreated)
+			objs, cursor := s.tables.TaskResultSlice(id, f, model.TaskStateQueryAll, model.TaskSortCreated)
+			items := make([]messapi.TaskResult, len(objs))
+			robj := model.TaskRequest{}
+			for i := range objs {
+				// TODO(maruel): Make more performant.
+				s.tables.TaskRequestGet(objs[i].Key, &robj)
+				items[i].FromDB(&robj, &objs[i], req.IncludePerformanceStats)
+			}
 			sendJSONResponse(w, messapi.BotTasksResponse{
-				Cursor: "",
-				Items:  []messapi.TaskResult{},
+				Cursor: cursor,
+				Items:  items,
 				Now:    cloudNow,
 			})
 			return
@@ -622,15 +628,15 @@ func (s *server) apiEndpointTask(w http.ResponseWriter, r *http.Request) {
 			if !isMethodJSON(w, r, "GET") {
 				return
 			}
-			_ = messapi.TaskResultRequest{
-				IncludePerformanceStats: r.FormValue("include_performance_stats") == "",
+			req := messapi.TaskResultRequest{
+				IncludePerformanceStats: messapi.ToBool(r.FormValue("include_performance_stats")),
 			}
 			robj := model.TaskRequest{}
 			s.tables.TaskRequestGet(id, &robj)
 			t := model.TaskResult{}
 			s.tables.TaskResultGet(id, &t)
 			resp := messapi.TaskResultResponse{}
-			resp.FromDB(&robj, &t)
+			resp.FromDB(&robj, &t, req.IncludePerformanceStats)
 			sendJSONResponse(w, resp)
 			return
 		case "stdout":

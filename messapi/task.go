@@ -122,14 +122,13 @@ type TasksNewResponse struct {
 
 // TasksRequestsRequest is /tasks/requests (GET).
 type TasksRequestsRequest struct {
-	Limit                   int64
-	Cursor                  string
-	End                     time.Time
-	Start                   time.Time
-	State                   TaskStateQuery
-	Tags                    []string
-	Sort                    TaskSort
-	IncludePerformanceStats bool
+	Limit  int64
+	Cursor string
+	End    time.Time
+	Start  time.Time
+	State  TaskStateQuery
+	Tags   []string
+	Sort   TaskSort
 }
 
 // TasksRequestsResponse is /tasks/requests (GET).
@@ -550,7 +549,7 @@ type TaskResult struct {
 	Name             string           `json:"name,omitempty"`
 	Tags             []string         `json:"tags,omitempty"`
 	User             string           `json:"user,omitempty"`
-	Perf             TaskPerfStats    `json:"performance_stats,omitempty"`
+	Perf             *TaskPerfStats   `json:"performance_stats,omitempty"`
 	CIPDPins         CIPDPins         `json:"cipd_pins,omitempty"`
 	RunID            model.TaskID     `json:"run_id,omitempty"`
 	CurrentTaskSlice Int              `json:"current_task_slice,omitempty"`
@@ -558,7 +557,7 @@ type TaskResult struct {
 }
 
 // FromDB converts the model to the API.
-func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
+func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult, includePerf bool) {
 	t.Abandoned = CloudTime(m.Abandoned)
 	t.BotDimensions = ToStringListPairs(m.BotDimensions)
 	t.BotID = m.BotID
@@ -592,7 +591,10 @@ func (t *TaskResult) FromDB(r *model.TaskRequest, m *model.TaskResult) {
 	t.Name = r.Name
 	t.Tags = r.Tags
 	t.User = r.User
-	t.Perf.FromDB()
+	if includePerf {
+		t.Perf = &TaskPerfStats{}
+		t.Perf.FromDB()
+	}
 	t.CIPDPins.ClientPkg.FromDB(&m.CIPDClientUsed)
 	t.CIPDPins.Pkgs = make([]CIPDPackage, len(m.CIPDPins))
 	for i := range m.CIPDPins {

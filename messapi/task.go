@@ -508,7 +508,7 @@ type CASOperationStats struct {
 
 // TaskPerfStats is the performance stats for a task.
 type TaskPerfStats struct {
-	BotOverhead          OperationStats    `json:"bot_overhead,omitempty"`
+	BotOverheadSecs      float64           `json:"bot_overhead,omitempty"`
 	CASDownload          CASOperationStats `json:"isolated_download,omitempty"`
 	CASUpload            CASOperationStats `json:"isolated_upload,omitempty"`
 	PkgInstallation      OperationStats    `json:"package_installation,omitempty"`
